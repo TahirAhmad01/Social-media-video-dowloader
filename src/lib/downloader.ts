@@ -172,8 +172,14 @@ export function getYtDlpBaseArgs(): string[] {
     '--js-runtimes',
     'node',
     '--user-agent',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    '--extractor-args',
+    'youtube:player_client=android,ios,mweb',
   ];
+
+  if (process.env.YOUTUBE_PO_TOKEN) {
+    args.push('--extractor-args', `youtube:po_token=${process.env.YOUTUBE_PO_TOKEN}`);
+  }
 
   if (process.env.YOUTUBE_COOKIES) {
     const cookiePath = path.join(os.tmpdir(), 'yt_cookies.txt');
@@ -237,6 +243,40 @@ interface RawYtDlpOutput {
   ext?: string;
 }
 
+async function runYtDlpJson(ytDlp: string, args: string[]): Promise<RawYtDlpOutput> {
+  return new Promise<RawYtDlpOutput>((resolve, reject) => {
+    const proc = spawn(ytDlp, args);
+    let stdoutData = '';
+    let stderrData = '';
+
+    proc.stdout.on('data', (chunk) => {
+      stdoutData += chunk.toString();
+    });
+
+    proc.stderr.on('data', (chunk) => {
+      stderrData += chunk.toString();
+    });
+
+    proc.on('close', (code) => {
+      if (code !== 0 || !stdoutData.trim()) {
+        const errMsg = stderrData || `yt-dlp exited with code ${code}`;
+        return reject(new Error(errMsg));
+      }
+
+      try {
+        const raw: RawYtDlpOutput = JSON.parse(stdoutData);
+        resolve(raw);
+      } catch (err) {
+        reject(new Error(`Failed to parse media metadata: ${(err as Error).message}`));
+      }
+    });
+
+    proc.on('error', (err) => {
+      reject(new Error(`yt-dlp process execution failed: ${err.message}`));
+    });
+  });
+}
+
 export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> {
   const platform = detectPlatform(targetUrl);
 
@@ -251,46 +291,43 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
   const ytDlp = await getYtDlpPath();
   const baseArgs = getYtDlpBaseArgs();
 
-  const args = [...baseArgs, '-J', targetUrl];
+  let rawOutput: RawYtDlpOutput | null = null;
+  let lastError: Error | null = null;
 
-  return new Promise<MediaMetadata>((resolve, reject) => {
-    const proc = spawn(ytDlp, args);
-    let stdoutData = '';
-    let stderrData = '';
+  try {
+    rawOutput = await runYtDlpJson(ytDlp, [...baseArgs, '-J', targetUrl]);
+  } catch (err) {
+    lastError = err instanceof Error ? err : new Error(String(err));
 
-    proc.stdout.on('data', (chunk) => {
-      stdoutData += chunk.toString();
-    });
-
-    proc.stderr.on('data', (chunk) => {
-      stderrData += chunk.toString();
-    });
-
-    proc.on('close', async (code) => {
-      if (code !== 0 || !stdoutData.trim()) {
-        // If yt-dlp failed on telegram, fallback to telegram scraper
-        if (platform === 'telegram') {
-          const fallback = await scrapeTelegramPost(targetUrl);
-          if (fallback) return resolve(fallback);
-        }
-
-        const errMsg = stderrData || `Failed to extract media information (Exit code ${code})`;
-        return reject(new Error(errMsg));
-      }
-
+    // If YouTube triggered bot verification with android/ios/mweb, retry with TV client
+    if (platform === 'youtube' && (lastError.message.includes('bot') || lastError.message.includes('Sign in'))) {
       try {
-        const raw: RawYtDlpOutput = JSON.parse(stdoutData);
-        const metadata = processRawMetadata(raw, targetUrl, platform);
-        resolve(metadata);
-      } catch (err) {
-        reject(new Error(`Failed to parse media metadata: ${(err as Error).message}`));
+        const tvArgs = [
+          ...baseArgs.filter((a, idx, arr) => a !== '--extractor-args' && arr[idx - 1] !== '--extractor-args'),
+          '--extractor-args',
+          'youtube:player_client=tv',
+          '-J',
+          targetUrl,
+        ];
+        rawOutput = await runYtDlpJson(ytDlp, tvArgs);
+      } catch (retryErr) {
+        // Fall back to original error
+        lastError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
       }
-    });
+    }
+  }
 
-    proc.on('error', (err) => {
-      reject(new Error(`yt-dlp process execution failed: ${err.message}`));
-    });
-  });
+  if (!rawOutput) {
+    // If yt-dlp failed on telegram, fallback to telegram scraper
+    if (platform === 'telegram') {
+      const fallback = await scrapeTelegramPost(targetUrl);
+      if (fallback) return fallback;
+    }
+
+    throw lastError || new Error('Failed to extract media information');
+  }
+
+  return processRawMetadata(rawOutput, targetUrl, platform);
 }
 
 function processRawMetadata(
