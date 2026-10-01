@@ -7,6 +7,7 @@ import { getYtDlpPath, getYtDlpBaseArgs } from '@/lib/downloader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function sanitizeFilename(name: string): string {
   return name
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Use yt-dlp to download and convert/merge
-  const ytDlp = getYtDlpPath();
+  const ytDlp = await getYtDlpPath();
   const baseArgs = getYtDlpBaseArgs();
 
   // Create unique temp file path

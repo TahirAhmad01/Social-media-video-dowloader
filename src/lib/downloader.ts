@@ -1,5 +1,6 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { MediaMetadata, VideoFormat } from './types';
 import { detectPlatform, formatBytes, formatDuration } from './url-detector';
@@ -7,6 +8,7 @@ import { scrapeTelegramPost } from './telegram-scraper';
 
 let cachedFfmpegPath: string | null = null;
 let cachedYtDlpPath: string | null = null;
+let downloadPromise: Promise<string> | null = null;
 
 export function getFfmpegPath(): string | null {
   if (cachedFfmpegPath && fs.existsSync(cachedFfmpegPath)) {
@@ -49,27 +51,117 @@ export function getFfmpegPath(): string | null {
   return null;
 }
 
-export function getYtDlpPath(): string {
+export async function getYtDlpPath(): Promise<string> {
   if (cachedYtDlpPath && fs.existsSync(cachedYtDlpPath)) {
     return cachedYtDlpPath;
   }
 
-  const candidatePaths = [
-    '/Users/tahirahmad/.pyenv/shims/yt-dlp',
-    '/opt/homebrew/bin/yt-dlp',
-    '/usr/local/bin/yt-dlp',
-    '/usr/bin/yt-dlp',
-    'yt-dlp',
-  ];
+  // 1. Explicit env var
+  if (process.env.YT_DLP_PATH && fs.existsSync(process.env.YT_DLP_PATH)) {
+    cachedYtDlpPath = process.env.YT_DLP_PATH;
+    return cachedYtDlpPath;
+  }
 
-  for (const p of candidatePaths) {
-    if (p === 'yt-dlp' || fs.existsSync(p)) {
+  // 2. Bundled bin directory (e.g. from pre-build step or repo)
+  const bundledCandidates = [
+    path.join(process.cwd(), 'bin', 'yt-dlp'),
+    path.join(process.cwd(), 'bin', 'yt-dlp_linux'),
+    path.join(process.cwd(), 'bin', 'yt-dlp.exe'),
+  ];
+  for (const p of bundledCandidates) {
+    if (fs.existsSync(p)) {
+      try {
+        fs.chmodSync(p, 0o755);
+      } catch {
+        // ignore
+      }
       cachedYtDlpPath = p;
       return p;
     }
   }
 
-  return 'yt-dlp';
+  // 3. Cached binary in os.tmpdir() (lambda instances)
+  const tmpDest = path.join(os.tmpdir(), process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+  if (fs.existsSync(tmpDest)) {
+    try {
+      const stats = fs.statSync(tmpDest);
+      if (stats.size > 10000000) {
+        fs.chmodSync(tmpDest, 0o755);
+        cachedYtDlpPath = tmpDest;
+        return tmpDest;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 4. Local system candidate paths
+  const candidatePaths = [
+    '/Users/tahirahmad/.pyenv/shims/yt-dlp',
+    '/opt/homebrew/bin/yt-dlp',
+    '/usr/local/bin/yt-dlp',
+    '/usr/bin/yt-dlp',
+    '/bin/yt-dlp',
+  ];
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      cachedYtDlpPath = p;
+      return p;
+    }
+  }
+
+  // 5. System PATH check
+  try {
+    const whichCmd = process.platform === 'win32' ? 'where yt-dlp' : 'which yt-dlp';
+    const foundPath = execSync(whichCmd, {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    }).trim().split('\n')[0].trim();
+    if (foundPath && fs.existsSync(foundPath)) {
+      cachedYtDlpPath = foundPath;
+      return foundPath;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 6. Cloud / Serverless auto-download fallback
+  if (downloadPromise) {
+    return downloadPromise;
+  }
+
+  downloadPromise = (async () => {
+    const binaryName =
+      process.platform === 'win32'
+        ? 'yt-dlp.exe'
+        : process.platform === 'darwin'
+        ? 'yt-dlp_macos'
+        : 'yt-dlp_linux';
+
+    const downloadUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
+    console.log(`[downloader] yt-dlp not found locally. Auto-downloading standalone ${binaryName} from ${downloadUrl}...`);
+
+    const tempFile = `${tmpDest}.download.${Date.now()}`;
+    const res = await fetch(downloadUrl, { redirect: 'follow' });
+    if (!res.ok) {
+      throw new Error(
+        `Failed to auto-download yt-dlp standalone binary: HTTP ${res.status} ${res.statusText}. Please ensure yt-dlp is installed or set YT_DLP_PATH.`
+      );
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    fs.writeFileSync(tempFile, Buffer.from(arrayBuf));
+    fs.chmodSync(tempFile, 0o755);
+    fs.renameSync(tempFile, tmpDest);
+
+    console.log(`[downloader] Successfully downloaded and cached yt-dlp at: ${tmpDest}`);
+    cachedYtDlpPath = tmpDest;
+    return tmpDest;
+  })().finally(() => {
+    downloadPromise = null;
+  });
+
+  return downloadPromise;
 }
 
 export function getYtDlpBaseArgs(): string[] {
@@ -82,6 +174,24 @@ export function getYtDlpBaseArgs(): string[] {
     '--user-agent',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
   ];
+
+  if (process.env.YOUTUBE_COOKIES) {
+    const cookiePath = path.join(os.tmpdir(), 'yt_cookies.txt');
+    try {
+      fs.writeFileSync(cookiePath, process.env.YOUTUBE_COOKIES, 'utf-8');
+      args.push('--cookies', cookiePath);
+    } catch {
+      // ignore
+    }
+  } else if (process.env.COOKIES_PATH && fs.existsSync(process.env.COOKIES_PATH)) {
+    args.push('--cookies', process.env.COOKIES_PATH);
+  } else if (fs.existsSync(path.join(process.cwd(), 'cookies.txt'))) {
+    args.push('--cookies', path.join(process.cwd(), 'cookies.txt'));
+  }
+
+  if (process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
+    args.push('--proxy', (process.env.HTTP_PROXY || process.env.HTTPS_PROXY)!);
+  }
 
   const ffmpeg = getFfmpegPath();
   if (ffmpeg) {
@@ -138,7 +248,7 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
     }
   }
 
-  const ytDlp = getYtDlpPath();
+  const ytDlp = await getYtDlpPath();
   const baseArgs = getYtDlpBaseArgs();
 
   const args = [...baseArgs, '-J', targetUrl];

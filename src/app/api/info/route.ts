@@ -3,6 +3,7 @@ import { fetchMediaInfo } from '@/lib/downloader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,12 +27,14 @@ export async function POST(req: NextRequest) {
     
     // Provide user-friendly hints if private or restricted
     let hint = message;
-    if (message.includes('Private video') || message.includes('Sign in')) {
+    if (message.includes('Sign in to confirm you’re not a bot') || message.includes("Sign in to confirm you're not a bot")) {
+      hint = 'YouTube requires bot verification on cloud server IPs. You can provide YouTube cookies via environment variable (YOUTUBE_COOKIES) or try Instagram, Facebook, and Telegram links.';
+    } else if (message.includes('Private video') || message.includes('Sign in')) {
       hint = 'This video appears to be private or requires user login.';
     } else if (message.includes('404') || message.includes('not found')) {
       hint = 'Video not found. Please verify the URL is correct and publicly accessible.';
-    } else if (message.includes('bot')) {
-      hint = 'Platform temporarily limited requests. Please try again in a few moments.';
+    } else if (message.includes('bot') || message.includes('HTTP Error 429')) {
+      hint = 'Platform temporarily limited cloud requests. Please try again or test with another link.';
     }
 
     return NextResponse.json(
