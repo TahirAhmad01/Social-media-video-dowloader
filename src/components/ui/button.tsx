@@ -12,10 +12,10 @@ const buttonVariants = cva(
         destructive:
           'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20',
         outline:
-          'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white',
+          'border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white shadow-sm dark:shadow-none',
         secondary:
-          'bg-slate-800 text-slate-100 hover:bg-slate-700',
-        ghost: 'hover:bg-white/10 text-slate-300 hover:text-white',
+          'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-700',
+        ghost: 'hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white',
         link: 'text-violet-400 underline-offset-4 hover:underline',
         success:
           'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/50 hover:-translate-y-0.5',

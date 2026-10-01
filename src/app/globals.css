@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -8,18 +10,33 @@
   }
 
   body {
-    background-color: #08090d;
-    color: #f8fafc;
     min-height: 100vh;
     overflow-x: hidden;
     position: relative;
+    background-attachment: fixed;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Light theme ambient background */
+  :root {
+    background-color: #f8fafc;
+    color: #0f172a;
     background-image: 
-      radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
-      radial-gradient(circle at 85% 15%, rgba(236, 72, 153, 0.10) 0%, transparent 40%),
+      radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 85% 15%, rgba(236, 72, 153, 0.06) 0%, transparent 40%),
+      radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 85%, rgba(34, 158, 217, 0.05) 0%, transparent 40%);
+  }
+
+  /* Dark theme ambient background */
+  .dark {
+    background-color: #08090d;
+    color: #f8fafc;
+    background-image: 
+      radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 85% 15%, rgba(236, 72, 153, 0.12) 0%, transparent 40%),
       radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
       radial-gradient(circle at 80% 85%, rgba(34, 158, 217, 0.08) 0%, transparent 40%);
-    background-attachment: fixed;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
 
   /* Custom scrollbar */
@@ -31,24 +48,10 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(148, 163, 184, 0.4);
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
   }
-}
-
-/* Animations */
-@keyframes spinSlow {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.8; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.95); }
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 2s infinite ease-in-out;
 }
