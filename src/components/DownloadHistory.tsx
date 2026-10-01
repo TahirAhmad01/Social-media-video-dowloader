@@ -1,0 +1,85 @@
+'use client';
+
+import React from 'react';
+import { History, Trash2, ArrowUpRight, Film } from 'lucide-react';
+import { DownloadHistoryItem } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+
+interface DownloadHistoryProps {
+  history: DownloadHistoryItem[];
+  onClearHistory: () => void;
+  onSelectUrl: (url: string) => void;
+}
+
+export default function DownloadHistory({
+  history,
+  onClearHistory,
+  onSelectUrl,
+}: DownloadHistoryProps) {
+  if (history.length === 0) return null;
+
+  return (
+    <section className="mx-auto mb-14 w-full max-w-5xl">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2.5 text-lg font-bold text-white">
+          <History className="h-5 w-5 text-violet-400" />
+          <span>Recent Downloads</span>
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClearHistory}
+          className="text-xs text-slate-300 hover:text-red-400 hover:border-red-500/30"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span>Clear History</span>
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {history.map((item) => (
+          <div
+            key={item.id}
+            className="flex flex-col gap-3 rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md p-3.5 transition-all hover:border-white/20 hover:-translate-y-1 hover:shadow-xl shadow-black/40"
+          >
+            <div className="relative h-36 w-full rounded-lg bg-black overflow-hidden">
+              {item.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/stream?url=${encodeURIComponent(item.thumbnail)}`}
+                  alt={item.title}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = item.thumbnail || '';
+                  }}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-slate-500">
+                  <Film size={32} />
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm font-semibold text-white line-clamp-2 leading-snug" title={item.title}>
+              {item.title}
+            </div>
+
+            <div className="mt-auto flex items-center justify-between text-xs text-slate-400 pt-1">
+              <span className="capitalize text-violet-300 font-medium">
+                {item.platform} • {item.formatLabel}
+              </span>
+              <button
+                type="button"
+                onClick={() => onSelectUrl(item.url)}
+                className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              >
+                <span>Re-fetch</span>
+                <ArrowUpRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
