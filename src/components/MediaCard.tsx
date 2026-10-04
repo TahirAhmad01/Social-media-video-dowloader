@@ -287,12 +287,12 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
         });
       }
 
+      setDownloadingId(null);
       setDownloadSuccessId(format.id);
       setDownloadStatus('Downloaded!');
 
       setTimeout(() => {
         setDownloadSuccessId(null);
-        setDownloadingId(null);
         setActiveDownloadFormat(null);
         setDownloadProgress(null);
         setDownloadStatus('');
@@ -458,7 +458,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
           {/* Real-Time Download Progress Card */}
           {downloadProgress && activeDownloadFormat && (
-            <div className="mb-5 overflow-hidden rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-gradient-to-br from-emerald-50 via-teal-50/70 to-emerald-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-950/80 p-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="mb-5 overflow-hidden rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/70 dark:bg-slate-950/90 dark:bg-gradient-to-br dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-950/80 p-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between gap-3 mb-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
@@ -562,57 +562,69 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
           )}
 
           {/* Quick Quality Selector Box */}
-          {selectedFormatObj && (
-            <div className="mb-5 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50/70 dark:bg-gradient-to-br dark:from-violet-950/40 dark:via-purple-900/20 dark:to-slate-900/60 p-4 shadow-sm dark:shadow-lg">
-              <div className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-800 dark:text-amber-400">
-                <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-amber-400" />
-                <span>Select Desired Quality:</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
-                <select
-                  value={selectedFormatId}
-                  onChange={(e) => setSelectedFormatId(e.target.value)}
-                  className="flex-1 min-w-0 truncate rounded-lg border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer shadow-sm"
-                >
-                  {media.formats.map((fmt) => (
-                    <option key={fmt.id} value={fmt.id} className="text-slate-900 dark:text-white bg-white dark:bg-slate-950">
-                      {fmt.label} {fmt.filesizeText ? `(${fmt.filesizeText})` : ''}
-                    </option>
-                  ))}
-                </select>
+          {selectedFormatObj && (() => {
+            const isQualitySuccess = downloadSuccessId === selectedFormatObj.id;
+            const isQualityDownloading = downloadingId === selectedFormatObj.id && !isQualitySuccess;
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="success"
-                    disabled={downloadingId === selectedFormatObj.id}
-                    onClick={() => handleDownload(selectedFormatObj)}
-                    className="flex-1 sm:flex-none h-10 px-6 font-bold shadow-md shadow-emerald-600/25 min-w-[160px]"
+            return (
+              <div className="mb-5 rounded-xl border border-violet-200/80 dark:border-white/10 bg-violet-50/80 dark:bg-slate-950/75 p-4 shadow-sm dark:shadow-inner">
+                <div className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                  <span>Select Desired Quality:</span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
+                  <select
+                    value={selectedFormatId}
+                    onChange={(e) => setSelectedFormatId(e.target.value)}
+                    className="flex-1 min-w-0 truncate rounded-lg border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer shadow-sm"
                   >
-                    {downloadingId === selectedFormatObj.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                        <span className="truncate">
-                          {downloadProgress?.percent !== null && downloadProgress?.percent !== undefined
-                            ? `Downloading ${downloadProgress.percent}%`
-                            : downloadStatus || 'Starting...'}
-                        </span>
-                      </>
-                    ) : downloadSuccessId === selectedFormatObj.id ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-white shrink-0" />
-                        <span>{downloadStatus || 'Downloaded!'}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 shrink-0" />
-                        <span>Download Now</span>
-                      </>
-                    )}
-                  </Button>
+                    {media.formats.map((fmt) => (
+                      <option key={fmt.id} value={fmt.id} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">
+                        {fmt.label} {fmt.filesizeText ? `(${fmt.filesizeText})` : ''}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="success"
+                      disabled={isQualityDownloading}
+                      onClick={() => handleDownload(selectedFormatObj)}
+                      className={cn(
+                        "flex-1 sm:flex-none h-10 px-6 font-bold shadow-md min-w-[160px] transition-all",
+                        isQualitySuccess
+                          ? "bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                          : isQualityDownloading
+                          ? "shadow-emerald-600/25 opacity-90 cursor-wait"
+                          : "shadow-emerald-600/25"
+                      )}
+                    >
+                      {isQualitySuccess ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-white shrink-0" />
+                          <span>{downloadStatus || 'Downloaded!'}</span>
+                        </>
+                      ) : isQualityDownloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                          <span className="truncate">
+                            {downloadProgress?.percent !== null && downloadProgress?.percent !== undefined
+                              ? `Downloading ${downloadProgress.percent}%`
+                              : downloadStatus || 'Starting...'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 shrink-0" />
+                          <span>Download Now</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* All Available Formats List with Filter Tabs */}
           <div className="mt-auto min-w-0 w-full">
@@ -641,8 +653,8 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
             <div className="flex max-h-60 flex-col gap-2 overflow-y-auto pr-1">
               {filteredFormats.map((fmt) => {
-                const isDownloading = downloadingId === fmt.id;
                 const isSuccess = downloadSuccessId === fmt.id;
+                const isDownloading = downloadingId === fmt.id && !isSuccess;
                 const badgeVariant = getFormatBadgeVariant(fmt.qualityBadge, fmt.isAudioOnly);
 
                 return (
@@ -671,9 +683,17 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       variant={fmt.isAudioOnly ? 'pink' : 'success'}
                       disabled={isDownloading}
                       onClick={() => handleDownload(fmt)}
-                      className="shrink-0 font-bold min-w-[110px]"
+                      className={cn(
+                        "shrink-0 font-bold min-w-[110px] transition-all",
+                        isSuccess && "bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                      )}
                     >
-                      {isDownloading ? (
+                      {isSuccess ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white shrink-0" />
+                          <span>Saved!</span>
+                        </>
+                      ) : isDownloading ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
                           <span className="truncate">
@@ -681,11 +701,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                               ? `${downloadProgress.percent}%`
                               : downloadStatus || 'Starting...'}
                           </span>
-                        </>
-                      ) : isSuccess ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-white shrink-0" />
-                          <span>Saved!</span>
                         </>
                       ) : (
                         <>
