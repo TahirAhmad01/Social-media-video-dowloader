@@ -77,6 +77,15 @@ export async function GET(req: NextRequest) {
   const ext = isAudioOnly ? 'mp3' : 'mp4';
   const filename = `${cleanTitle}.${ext}`;
 
+  const mode = searchParams.get('mode');
+  if (mode === 'json') {
+    return NextResponse.json({
+      success: true,
+      downloadUrl: `/api/download?url=${encodeURIComponent(targetUrl || '')}&format_id=${formatId}&title=${encodeURIComponent(rawTitle)}`,
+      filename,
+    });
+  }
+
 
   // If a direct URL was provided and it's from a trusted CDN (e.g., Telegram telesco.pe or direct mp4)
   if (directMediaUrl && directMediaUrl.startsWith('http') && !isAudioOnly) {
@@ -89,8 +98,12 @@ export async function GET(req: NextRequest) {
       });
 
       if (upstreamRes.ok && upstreamRes.body) {
+        const asciiName = cleanTitle.replace(/[^\x20-\x7E]/g, '_') || 'video';
         const headers = new Headers();
-        headers.set('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+        headers.set(
+          'Content-Disposition',
+          `attachment; filename="${asciiName}.${ext}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+        );
         headers.set('Content-Type', upstreamRes.headers.get('content-type') || 'video/mp4');
         const cl = upstreamRes.headers.get('content-length');
         if (cl) headers.set('Content-Length', cl);
@@ -117,8 +130,12 @@ export async function GET(req: NextRequest) {
         });
 
         if (upstreamRes.ok && upstreamRes.body) {
+          const asciiName = cleanTitle.replace(/[^\x20-\x7E]/g, '_') || 'video';
           const headers = new Headers();
-          headers.set('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+          headers.set(
+            'Content-Disposition',
+            `attachment; filename="${asciiName}.${ext}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+          );
           headers.set('Content-Type', isAudioOnly ? 'audio/mpeg' : 'video/mp4');
           const cl = upstreamRes.headers.get('content-length');
           if (cl) headers.set('Content-Length', cl);
@@ -280,8 +297,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const asciiName = cleanTitle.replace(/[^\x20-\x7E]/g, '_') || 'video';
     const headers = new Headers();
-    headers.set('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    headers.set(
+      'Content-Disposition',
+      `attachment; filename="${asciiName}.${ext}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
     headers.set('Content-Type', isAudioOnly ? 'audio/mpeg' : 'video/mp4');
     headers.set('Content-Length', fileStat.size.toString());
     headers.set('Cache-Control', 'no-cache, no-store');
