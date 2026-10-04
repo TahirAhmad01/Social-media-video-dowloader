@@ -62,7 +62,68 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Use yt-dlp to download and convert/merge
+  // If it's a YouTube URL, avoid executing local yt-dlp because Vercel/AWS datacenter IPs are blocked by YouTube
+  const isYouTube = targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'));
+  if (isYouTube && targetUrl) {
+    const videoIdMatch = targetUrl.match(
+      /(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/
+    );
+    const videoId = videoIdMatch ? videoIdMatch[1] : null;
+
+    try {
+      const cloudFormat =
+        isAudioOnly || formatId.includes('audio') || formatId.includes('mp3')
+          ? 'mp3'
+          : formatId.includes('1080')
+          ? '1080'
+          : formatId.includes('720')
+          ? '720'
+          : formatId.includes('480')
+          ? '480'
+          : formatId.includes('360')
+          ? '360'
+          : '720';
+
+      const initRes = await fetch(
+        `https://p.savenow.to/ajax/download.php?url=${encodeURIComponent(targetUrl)}&format=${cloudFormat}`,
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          },
+        }
+      );
+
+      if (initRes.ok) {
+        const initData = await initRes.json();
+        if (initData.download_url) {
+          return NextResponse.redirect(initData.download_url, 302);
+        }
+
+        if (initData.id) {
+          // Poll for up to 8 seconds
+          for (let i = 0; i < 4; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            const pollRes = await fetch(`https://p.savenow.to/api/progress?id=${encodeURIComponent(initData.id)}`);
+            if (pollRes.ok) {
+              const pollData = await pollRes.json();
+              if (pollData.success === 1 && pollData.download_url) {
+                return NextResponse.redirect(pollData.download_url, 302);
+              }
+            }
+          }
+        }
+      }
+    } catch (ytErr) {
+      console.warn('[download] YouTube cloud resolver failed:', ytErr);
+    }
+
+    if (videoId) {
+      return NextResponse.redirect(`https://www.ssyoutube.com/watch?v=${videoId}`, 302);
+    }
+  }
+
+  // Use yt-dlp to download and convert/merge for other platforms
   const ytDlp = await getYtDlpPath();
   const baseArgs = getYtDlpBaseArgs();
 
@@ -149,31 +210,7 @@ export async function GET(req: NextRequest) {
     try {
       await executeDownload(downloadArgs);
     } catch (firstErr) {
-      console.warn('[download] Primary download attempt failed, trying fallback client:', firstErr);
-      try {
-        const fallbackArgs = [
-          ...downloadArgs.filter((a, idx, arr) => a !== '--extractor-args' && arr[idx - 1] !== '--extractor-args'),
-          '--extractor-args',
-          'youtube:player_client=ios_creator,visionos',
-        ];
-        await executeDownload(fallbackArgs);
-      } catch (secondErr) {
-        console.warn('[download] Second download attempt failed, trying progressive stream:', secondErr);
-        const lastResortArgs = [
-          ...downloadArgs.filter(
-            (a, idx, arr) =>
-              a !== '--extractor-args' &&
-              arr[idx - 1] !== '--extractor-args' &&
-              a !== '-f' &&
-              arr[idx - 1] !== '-f'
-          ),
-          '--extractor-args',
-          'youtube:player_client=android_vr',
-          '-f',
-          isAudioOnly ? 'ba/b' : 'b/18/best',
-        ];
-        await executeDownload(lastResortArgs);
-      }
+      console.warn('[download] Primary download attempt failed:', firstErr);
     }
 
     // Locate the actual output file (in case yt-dlp appended an extension)

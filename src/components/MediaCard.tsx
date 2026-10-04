@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Play,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import { MediaMetadata, VideoFormat, DownloadHistoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,9 @@ interface MediaCardProps {
 
 export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<string>('');
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{ id: string; message: string; mirrorUrl?: string } | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'video' | 'audio'>('all');
   const [selectedFormatId, setSelectedFormatId] = useState<string>('');
@@ -70,26 +73,15 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
   const handleDownload = async (format: VideoFormat) => {
     setDownloadingId(format.id);
+    setDownloadStatus('Preparing...');
     setDownloadSuccessId(null);
+    setDownloadError(null);
 
-    try {
-      const params = new URLSearchParams();
-      params.set('url', media.url);
-      params.set('format_id', format.id);
-      params.set('title', media.title);
-      if (format.isAudioOnly) {
-        params.set('audio', '1');
-      }
-      if (format.url) {
-        params.set('direct_url', format.url);
-      }
-
-      const downloadUrl = `/api/download?${params.toString()}`;
-
+    const triggerSave = (downloadUrl: string, filename: string) => {
       const a = document.createElement('a');
       a.href = downloadUrl;
-      const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80);
-      a.download = `${cleanTitle}.${format.ext || 'mp4'}`;
+      a.setAttribute('download', filename);
+      a.setAttribute('target', '_blank');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -108,15 +100,97 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
       }
 
       setDownloadSuccessId(format.id);
+      setDownloadStatus('Downloaded!');
       setTimeout(() => {
         setDownloadSuccessId(null);
-      }, 4000);
-    } catch (err) {
-      console.error('Download trigger error:', err);
-    } finally {
-      setTimeout(() => {
         setDownloadingId(null);
-      }, 1500);
+        setDownloadStatus('');
+      }, 4000);
+    };
+
+    try {
+      const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
+      const defaultFilename = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
+
+      const prepRes = await fetch('/api/download/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: media.url,
+          formatId: format.id,
+          isAudioOnly: !!format.isAudioOnly,
+          title: media.title,
+          directUrl: format.url,
+        }),
+      });
+
+      if (!prepRes.ok) {
+        throw new Error(`Server returned ${prepRes.status}`);
+      }
+
+      const prepData = await prepRes.json();
+
+      // Case 1: Immediately ready direct download URL
+      if (prepData.ready && prepData.downloadUrl) {
+        triggerSave(prepData.downloadUrl, prepData.filename || defaultFilename);
+        return;
+      }
+
+      // Case 2: Conversion job started, poll progress
+      if (prepData.id) {
+        setDownloadStatus('Converting...');
+        const jobId = prepData.id;
+        const maxPolls = 20; // up to 30s
+        let pollCount = 0;
+        let finished = false;
+
+        while (pollCount < maxPolls && !finished) {
+          pollCount++;
+          await new Promise((r) => setTimeout(r, 1500));
+
+          try {
+            const progRes = await fetch(`/api/download/progress?id=${encodeURIComponent(jobId)}`);
+            if (progRes.ok) {
+              const progData = await progRes.json();
+
+              if (progData.ready && progData.downloadUrl) {
+                finished = true;
+                triggerSave(progData.downloadUrl, prepData.filename || defaultFilename);
+                return;
+              }
+
+              if (progData.progress) {
+                setDownloadStatus(`Converting (${progData.progress}%)...`);
+              } else if (progData.text) {
+                setDownloadStatus(progData.text);
+              }
+            }
+          } catch (pollErr) {
+            console.warn('Poll error:', pollErr);
+          }
+        }
+
+        if (!finished) {
+          throw new Error('Conversion took longer than expected');
+        }
+      } else {
+        const mirror = prepData.mirrorUrl || (media.platform === 'youtube' ? `https://www.ssyoutube.com/watch?v=${media.id}` : undefined);
+        setDownloadError({
+          id: format.id,
+          message: prepData.error || 'Download failed to initialize',
+          mirrorUrl: mirror,
+        });
+        setDownloadingId(null);
+      }
+    } catch (err: unknown) {
+      console.error('Download error:', err);
+      const mirror = media.platform === 'youtube' ? `https://www.ssyoutube.com/watch?v=${media.id}` : undefined;
+      setDownloadError({
+        id: format.id,
+        message: 'Could not complete cloud conversion.',
+        mirrorUrl: mirror,
+      });
+      setDownloadingId(null);
     }
   };
 
@@ -262,6 +336,27 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
             </div>
           </div>
 
+          {/* Error / Mirror Alert Banner */}
+          {downloadError && (
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>{downloadError.message}</span>
+              </div>
+              {downloadError.mirrorUrl && (
+                <a
+                  href={downloadError.mirrorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition-colors shrink-0 shadow-sm"
+                >
+                  <span>Open Instant Mirror</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          )}
+
           {/* Quick Quality Selector Box */}
           {selectedFormatObj && (
             <div className="mb-5 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50/70 dark:bg-gradient-to-br dark:from-violet-950/40 dark:via-purple-900/20 dark:to-slate-900/60 p-4 shadow-sm dark:shadow-lg">
@@ -287,17 +382,17 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     variant="success"
                     disabled={downloadingId === selectedFormatObj.id}
                     onClick={() => handleDownload(selectedFormatObj)}
-                    className="flex-1 sm:flex-none h-10 px-5 font-bold shadow-md shadow-emerald-600/25"
+                    className="flex-1 sm:flex-none h-10 px-5 font-bold shadow-md shadow-emerald-600/25 min-w-[140px]"
                   >
                     {downloadingId === selectedFormatObj.id ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Downloading...</span>
+                        <span className="truncate">{downloadStatus || 'Preparing...'}</span>
                       </>
                     ) : downloadSuccessId === selectedFormatObj.id ? (
                       <>
                         <CheckCircle2 className="h-4 w-4 text-white" />
-                        <span>Downloaded!</span>
+                        <span>{downloadStatus || 'Downloaded!'}</span>
                       </>
                     ) : (
                       <>
@@ -381,12 +476,12 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       variant={fmt.isAudioOnly ? 'pink' : 'success'}
                       disabled={isDownloading}
                       onClick={() => handleDownload(fmt)}
-                      className="shrink-0 font-bold"
+                      className="shrink-0 font-bold min-w-[100px]"
                     >
                       {isDownloading ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Starting...</span>
+                          <span className="truncate">{downloadStatus || 'Starting...'}</span>
                         </>
                       ) : isSuccess ? (
                         <>
