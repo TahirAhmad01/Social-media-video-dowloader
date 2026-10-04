@@ -36,9 +36,6 @@ export const metadata: Metadata = {
   authors: [{ name: 'QStream', url: 'https://qubartech.com' }],
 };
 
-import { BackgroundTasksProvider } from '@/components/tasks/BackgroundTasksContext';
-import BackgroundTaskWidget from '@/components/tasks/BackgroundTaskWidget';
-
 export default function RootLayout({
   children,
 }: {
@@ -63,13 +60,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange={false}
         >
-          <BackgroundTasksProvider>
-            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.12),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.18),rgba(255,255,255,0))]" />
-            <div className="relative z-10 flex min-h-screen w-full max-w-full flex-col overflow-x-hidden">
-              {children}
-            </div>
-            <BackgroundTaskWidget />
-          </BackgroundTasksProvider>
+          <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.12),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.18),rgba(255,255,255,0))]" />
+          <div className="relative z-10 flex min-h-screen w-full max-w-full flex-col overflow-x-hidden">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>

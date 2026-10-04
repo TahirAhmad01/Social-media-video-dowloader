@@ -145,8 +145,8 @@ export async function getYtDlpPath(): Promise<string> {
       process.platform === 'win32'
         ? 'yt-dlp.exe'
         : process.platform === 'darwin'
-        ? 'yt-dlp_macos'
-        : 'yt-dlp_linux';
+          ? 'yt-dlp_macos'
+          : 'yt-dlp_linux';
 
     const downloadUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
     console.log(`[downloader] yt-dlp not found locally. Auto-downloading standalone ${binaryName} from ${downloadUrl}...`);
@@ -368,7 +368,7 @@ export async function ensureUniversalVideoCompatibility(filePath: string): Promi
         }
       } else {
         if (fs.existsSync(tempTranscodePath)) {
-          try { fs.unlinkSync(tempTranscodePath); } catch {}
+          try { fs.unlinkSync(tempTranscodePath); } catch { }
         }
         console.warn(`[downloader] Video transcode warning (${code}): ${transcodeErr.slice(0, 200)}`);
         resolve();
@@ -522,89 +522,89 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
     console.warn('[downloader] Page HTML scrape error:', err);
   }
 
-    // Extract available video heights and content lengths
-    let availableHeights: number[] = [];
-    const sizeMap = new Map<number, number>();
+  // Extract available video heights and content lengths
+  let availableHeights: number[] = [];
+  const sizeMap = new Map<number, number>();
 
-    for (const af of rawAdaptiveFormats) {
-      if (af.height && typeof af.height === 'number' && af.height > 0) {
-        availableHeights.push(af.height);
-        if (af.contentLength) {
-          const sz = parseInt(af.contentLength, 10);
-          if (sz && (!sizeMap.has(af.height) || sz > (sizeMap.get(af.height) || 0))) {
-            sizeMap.set(af.height, sz);
-          }
+  for (const af of rawAdaptiveFormats) {
+    if (af.height && typeof af.height === 'number' && af.height > 0) {
+      availableHeights.push(af.height);
+      if (af.contentLength) {
+        const sz = parseInt(af.contentLength, 10);
+        if (sz && (!sizeMap.has(af.height) || sz > (sizeMap.get(af.height) || 0))) {
+          sizeMap.set(af.height, sz);
         }
       }
     }
+  }
 
-    availableHeights = [...new Set(availableHeights)].sort((a, b) => b - a);
+  availableHeights = [...new Set(availableHeights)].sort((a, b) => b - a);
 
-    // If YouTube HTML was scraped without player data or blocked, ONLY offer 4K/8K if explicitly in title
-    if (availableHeights.length === 0) {
-      const titleUpper = title.toUpperCase();
-      if (titleUpper.includes('8K') || titleUpper.includes('4320')) {
-        availableHeights = [4320, 2160, 1440, 1080, 720, 480, 360];
-      } else if (titleUpper.includes('4K') || titleUpper.includes('2160') || titleUpper.includes('UHD')) {
-        availableHeights = [2160, 1440, 1080, 720, 480, 360];
-      } else if (titleUpper.includes('2K') || titleUpper.includes('1440')) {
-        availableHeights = [1440, 1080, 720, 480, 360];
-      } else {
-        // Dynamic standard max resolution: normal videos default up to 1080p (never fake 4K/2K)
-        availableHeights = [1080, 720, 480, 360, 240, 144];
-      }
+  // If YouTube HTML was scraped without player data or blocked, ONLY offer 4K/8K if explicitly in title
+  if (availableHeights.length === 0) {
+    const titleUpper = title.toUpperCase();
+    if (titleUpper.includes('8K') || titleUpper.includes('4320')) {
+      availableHeights = [4320, 2160, 1440, 1080, 720, 480, 360];
+    } else if (titleUpper.includes('4K') || titleUpper.includes('2160') || titleUpper.includes('UHD')) {
+      availableHeights = [2160, 1440, 1080, 720, 480, 360];
+    } else if (titleUpper.includes('2K') || titleUpper.includes('1440')) {
+      availableHeights = [1440, 1080, 720, 480, 360];
+    } else {
+      // Dynamic standard max resolution: normal videos default up to 1080p (never fake 4K/2K)
+      availableHeights = [1080, 720, 480, 360, 240, 144];
     }
+  }
 
-    const resolutionConfig: Record<number, { id: string; label: string; badge: string; note: string }> = {
-      4320: { id: 'video-8k', label: '8K Ultra HD (4320p)', badge: '8K UHD', note: '8K Ultra HD MP4' },
-      2160: { id: 'video-4k', label: '4K Ultra HD (2160p)', badge: '4K UHD', note: '4K Ultra HD MP4' },
-      1440: { id: 'video-1440', label: '2K Quad HD (1440p)', badge: '2K QHD', note: '2K Quad HD MP4' },
-      1080: { id: 'video-1080', label: '1080p Full HD', badge: '1080p', note: 'Full HD MP4' },
-      720: { id: 'video-720', label: '720p HD', badge: '720p', note: 'HD MP4' },
-      480: { id: 'video-480', label: '480p Standard', badge: '480p', note: 'Standard MP4' },
-      360: { id: 'video-360', label: '360p Medium', badge: '360p', note: 'Medium MP4' },
-      240: { id: 'video-240', label: '240p Compact', badge: '240p', note: 'Compact MP4' },
-      144: { id: 'video-144', label: '144p Mobile', badge: '144p', note: 'Mobile MP4' },
-    };
+  const resolutionConfig: Record<number, { id: string; label: string; badge: string; note: string }> = {
+    4320: { id: 'video-8k', label: '8K Ultra HD (4320p)', badge: '8K UHD', note: '8K Ultra HD MP4' },
+    2160: { id: 'video-4k', label: '4K Ultra HD (2160p)', badge: '4K UHD', note: '4K Ultra HD MP4' },
+    1440: { id: 'video-1440', label: '2K Quad HD (1440p)', badge: '2K QHD', note: '2K Quad HD MP4' },
+    1080: { id: 'video-1080', label: '1080p Full HD', badge: '1080p', note: 'Full HD MP4' },
+    720: { id: 'video-720', label: '720p HD', badge: '720p', note: 'HD MP4' },
+    480: { id: 'video-480', label: '480p Standard', badge: '480p', note: 'Standard MP4' },
+    360: { id: 'video-360', label: '360p Medium', badge: '360p', note: 'Medium MP4' },
+    240: { id: 'video-240', label: '240p Compact', badge: '240p', note: 'Compact MP4' },
+    144: { id: 'video-144', label: '144p Mobile', badge: '144p', note: 'Mobile MP4' },
+  };
 
-    const durationFormatted = duration ? formatDuration(duration) : undefined;
-    const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const durationFormatted = duration ? formatDuration(duration) : undefined;
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 
-    const formats: VideoFormat[] = [];
+  const formats: VideoFormat[] = [];
 
-    for (const h of availableHeights) {
-      const cfg = resolutionConfig[h];
-      if (cfg) {
-        const size = sizeMap.get(h);
-        formats.push({
-          id: cfg.id,
-          label: cfg.label,
-          ext: 'mp4',
-          resolution: `${h}p`,
-          height: h,
-          filesize: size,
-          filesizeText: size ? formatBytes(size) : undefined,
-          hasVideo: true,
-          hasAudio: true,
-          isAudioOnly: false,
-          qualityBadge: cfg.badge,
-          formatNote: cfg.note,
-        });
-      }
+  for (const h of availableHeights) {
+    const cfg = resolutionConfig[h];
+    if (cfg) {
+      const size = sizeMap.get(h);
+      formats.push({
+        id: cfg.id,
+        label: cfg.label,
+        ext: 'mp4',
+        resolution: `${h}p`,
+        height: h,
+        filesize: size,
+        filesizeText: size ? formatBytes(size) : undefined,
+        hasVideo: true,
+        hasAudio: true,
+        isAudioOnly: false,
+        qualityBadge: cfg.badge,
+        formatNote: cfg.note,
+      });
     }
+  }
 
-    // Audio format
-    formats.push({
-      id: 'best-audio-mp3',
-      label: 'MP3 Audio (High Quality)',
-      ext: 'mp3',
-      resolution: 'Audio 320kbps',
-      hasVideo: false,
-      hasAudio: true,
-      isAudioOnly: true,
-      qualityBadge: 'MP3',
-      formatNote: '320 kbps High Quality Audio',
-    });
+  // Audio format
+  formats.push({
+    id: 'best-audio-mp3',
+    label: 'MP3 Audio (High Quality)',
+    ext: 'mp3',
+    resolution: 'Audio 320kbps',
+    hasVideo: false,
+    hasAudio: true,
+    isAudioOnly: true,
+    qualityBadge: 'MP3',
+    formatNote: '320 kbps High Quality Audio',
+  });
 
   return {
     id: videoId,
@@ -876,12 +876,12 @@ function processRawMetadata(
       finalPlatform === 'youtube'
         ? 'YouTube'
         : finalPlatform === 'instagram'
-        ? 'Instagram'
-        : finalPlatform === 'facebook'
-        ? 'Facebook'
-        : finalPlatform === 'telegram'
-        ? 'Telegram'
-        : raw.extractor_key || 'Media',
+          ? 'Instagram'
+          : finalPlatform === 'facebook'
+            ? 'Facebook'
+            : finalPlatform === 'telegram'
+              ? 'Telegram'
+              : raw.extractor_key || 'Media',
     thumbnail: raw.thumbnail,
     duration: raw.duration,
     durationFormatted,

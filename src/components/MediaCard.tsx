@@ -16,13 +16,11 @@ import {
   AlertTriangle,
   X,
   ArrowDownCircle,
-  CloudDownload,
 } from 'lucide-react';
 import { MediaMetadata, VideoFormat, DownloadHistoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatBytes } from '@/lib/utils';
-import { useBackgroundTasks } from './tasks/BackgroundTasksContext';
 
 export interface DownloadProgressInfo {
   percent: number | null;
@@ -38,7 +36,6 @@ interface MediaCardProps {
 }
 
 export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
-  const { startTask } = useBackgroundTasks();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgressInfo | null>(null);
   const [activeDownloadFormat, setActiveDownloadFormat] = useState<VideoFormat | null>(null);
@@ -321,39 +318,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
     }
   };
 
-  const handleBackgroundDownload = async (format: VideoFormat) => {
-    try {
-      setDownloadStatus('Starting in background...');
-      await startTask({
-        url: media.url,
-        title: media.title,
-        formatId: format.id,
-        formatLabel: format.label,
-        isAudioOnly: format.isAudioOnly,
-        directUrl: format.url,
-        expectedFilesize: format.filesize,
-      });
-
-      if (onRecordDownload) {
-        onRecordDownload({
-          id: `${media.id}_${format.id}_${Date.now()}`,
-          title: media.title,
-          platform: media.platform,
-          thumbnail: media.thumbnail,
-          formatLabel: format.label,
-          downloadDate: Date.now(),
-          url: media.url,
-          filesizeText: format.filesizeText,
-        });
-      }
-    } catch (err) {
-      console.error('Background download trigger failed:', err);
-      setDownloadError({
-        id: format.id,
-        message: err instanceof Error ? err.message : 'Could not queue background download',
-      });
-    }
-  };
 
   const proxiedThumbnail = media.thumbnail
     ? `/api/stream?url=${encodeURIComponent(media.thumbnail)}`
@@ -632,8 +596,8 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                         isQualitySuccess
                           ? "bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500 text-white shadow-emerald-600/30"
                           : isQualityDownloading
-                          ? "shadow-emerald-600/25 opacity-90 cursor-wait"
-                          : "shadow-emerald-600/25"
+                            ? "shadow-emerald-600/25 opacity-90 cursor-wait"
+                            : "shadow-emerald-600/25"
                       )}
                     >
                       {isQualitySuccess ? (
@@ -658,16 +622,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       )}
                     </Button>
 
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => handleBackgroundDownload(selectedFormatObj)}
-                      className="h-10 px-3 sm:px-4 font-bold border-violet-300 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-950/40 shadow-sm shrink-0"
-                      title="Download continues on server even if you close the browser"
-                    >
-                      <CloudDownload className="h-4 w-4 shrink-0" />
-                      <span className="hidden xs:inline">Background</span>
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -762,15 +716,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                           </>
                         )}
                       </Button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleBackgroundDownload(fmt)}
-                        title="Download in background (works even if tab closes)"
-                        className="flex h-8 sm:h-9 w-8 sm:w-9 items-center justify-center rounded-lg border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 hover:border-violet-300 dark:hover:border-violet-500/30 transition-colors cursor-pointer shrink-0"
-                      >
-                        <CloudDownload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                      </button>
                     </div>
                   </div>
                 );
