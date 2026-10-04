@@ -73,7 +73,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
   const handleDownload = async (format: VideoFormat) => {
     setDownloadingId(format.id);
-    setDownloadStatus('Downloading...');
+    setDownloadStatus('Preparing stream...');
     setDownloadSuccessId(null);
     setDownloadError(null);
 
@@ -88,12 +88,21 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
       if (format.url) {
         params.set('direct_url', format.url);
       }
+      params.set('mode', 'json');
 
-      const downloadUrl = `/api/download?${params.toString()}`;
+      const res = await fetch(`/api/download?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.downloadUrl) {
+        throw new Error(data.error || 'Failed to prepare download stream.');
+      }
+
+      setDownloadStatus('Starting download...');
+
       const a = document.createElement('a');
-      a.href = downloadUrl;
+      a.href = data.downloadUrl;
       const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
-      a.download = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
+      a.download = data.filename || `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -118,13 +127,15 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
         setDownloadingId(null);
         setDownloadStatus('');
       }, 4000);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Download error:', err);
+      const msg = err instanceof Error ? err.message : 'Download failed to start.';
       setDownloadError({
         id: format.id,
-        message: 'Download could not start automatically.',
+        message: msg,
       });
       setDownloadingId(null);
+      setDownloadStatus('');
     }
   };
 
@@ -257,6 +268,14 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
               </div>
             </div>
           </div>
+
+          {/* Download Error Banner */}
+          {downloadError && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+              <div className="flex-1 font-medium">{downloadError.message}</div>
+            </div>
+          )}
 
           {/* Quick Quality Selector Box */}
           {selectedFormatObj && (

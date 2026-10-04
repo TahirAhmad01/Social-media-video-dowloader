@@ -17,12 +17,53 @@ function sanitizeFilename(name: string): string {
     .slice(0, 100);
 }
 
+async function resolveCloudDownloadUrl(targetUrl: string, formatId: string): Promise<string | null> {
+  try {
+    const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
+    const resolution = isAudioOnly ? 'mp3' : (formatId.replace('video-', '') || '1080');
+
+    const res = await fetch(
+      `https://p.savenow.to/ajax/download.php?copyright=0&format=${resolution}&url=${encodeURIComponent(targetUrl)}&api=dfcb6d76f2f6a9894gjkege8a4ab88b398`,
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        },
+      }
+    );
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.id) return null;
+
+    for (let i = 0; i < 15; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const pRes = await fetch(`https://p.savenow.to/api/progress?id=${data.id}`, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        },
+      });
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (pData.download_url) {
+          return pData.download_url;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[download] Cloud resolver error:', err);
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const targetUrl = searchParams.get('url');
   const formatId = searchParams.get('format_id') || 'best';
   const rawTitle = searchParams.get('title') || 'video';
   const directMediaUrl = searchParams.get('direct_url');
+  const mode = searchParams.get('mode');
 
   if (!targetUrl && !directMediaUrl) {
     return NextResponse.json(
@@ -31,10 +72,29 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const isYouTube = targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'));
   const cleanTitle = sanitizeFilename(rawTitle) || 'video';
   const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
   const ext = isAudioOnly ? 'mp3' : 'mp4';
   const filename = `${cleanTitle}.${ext}`;
+
+  // Mode: json (Prepare and verify direct download URL for the client)
+  if (mode === 'json') {
+    if (directMediaUrl && directMediaUrl.startsWith('http')) {
+      return NextResponse.json({ success: true, downloadUrl: directMediaUrl, filename });
+    }
+
+    if (isYouTube) {
+      const cloudUrl = await resolveCloudDownloadUrl(targetUrl!, formatId);
+      if (cloudUrl) {
+        return NextResponse.json({ success: true, downloadUrl: cloudUrl, filename });
+      }
+    }
+
+    // Default to streaming through this API
+    const fallbackDirect = `/api/download?url=${encodeURIComponent(targetUrl || '')}&format_id=${formatId}&title=${encodeURIComponent(rawTitle)}`;
+    return NextResponse.json({ success: true, downloadUrl: fallbackDirect, filename });
+  }
 
   // If a direct URL was provided and it's from a trusted CDN (e.g., Telegram telesco.pe or direct mp4)
   if (directMediaUrl && directMediaUrl.startsWith('http') && !isAudioOnly) {
@@ -58,7 +118,16 @@ export async function GET(req: NextRequest) {
         });
       }
     } catch (e) {
-      console.warn('Direct stream fetch failed, falling back to yt-dlp:', e);
+      console.warn('Direct stream fetch failed, falling back:', e);
+    }
+  }
+
+  // For YouTube requests, resolve direct binary stream
+  if (isYouTube) {
+    const cloudUrl = await resolveCloudDownloadUrl(targetUrl!, formatId);
+    if (cloudUrl) {
+      // 302 redirect directly to the prepared binary stream (which serves Content-Disposition: attachment)
+      return NextResponse.redirect(cloudUrl, 302);
     }
   }
 
