@@ -62,68 +62,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // If it's a YouTube URL, avoid executing local yt-dlp because Vercel/AWS datacenter IPs are blocked by YouTube
-  const isYouTube = targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'));
-  if (isYouTube && targetUrl) {
-    const videoIdMatch = targetUrl.match(
-      /(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/
-    );
-    const videoId = videoIdMatch ? videoIdMatch[1] : null;
-
-    try {
-      const cloudFormat =
-        isAudioOnly || formatId.includes('audio') || formatId.includes('mp3')
-          ? 'mp3'
-          : formatId.includes('1080')
-          ? '1080'
-          : formatId.includes('720')
-          ? '720'
-          : formatId.includes('480')
-          ? '480'
-          : formatId.includes('360')
-          ? '360'
-          : '720';
-
-      const initRes = await fetch(
-        `https://p.savenow.to/ajax/download.php?url=${encodeURIComponent(targetUrl)}&format=${cloudFormat}`,
-        {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          },
-        }
-      );
-
-      if (initRes.ok) {
-        const initData = await initRes.json();
-        if (initData.download_url) {
-          return NextResponse.redirect(initData.download_url, 302);
-        }
-
-        if (initData.id) {
-          // Poll for up to 8 seconds
-          for (let i = 0; i < 4; i++) {
-            await new Promise((r) => setTimeout(r, 2000));
-            const pollRes = await fetch(`https://p.savenow.to/api/progress?id=${encodeURIComponent(initData.id)}`);
-            if (pollRes.ok) {
-              const pollData = await pollRes.json();
-              if (pollData.success === 1 && pollData.download_url) {
-                return NextResponse.redirect(pollData.download_url, 302);
-              }
-            }
-          }
-        }
-      }
-    } catch (ytErr) {
-      console.warn('[download] YouTube cloud resolver failed:', ytErr);
-    }
-
-    if (videoId) {
-      return NextResponse.redirect(`https://www.ssyoutube.com/watch?v=${videoId}`, 302);
-    }
-  }
-
-  // Use yt-dlp to download and convert/merge for other platforms
+  // Use yt-dlp to download and convert/merge directly on the server
   const ytDlp = await getYtDlpPath();
   const baseArgs = getYtDlpBaseArgs();
 
@@ -169,7 +108,7 @@ export async function GET(req: NextRequest) {
     // Exact format code or fallback
     downloadArgs.push(
       '-f',
-      `${formatId}+bestaudio/best`,
+      `${formatId}+bestaudio/bestvideo[format_id=${formatId}]+bestaudio/${formatId}/best`,
       '--merge-output-format',
       'mp4',
       '-o',
@@ -210,7 +149,16 @@ export async function GET(req: NextRequest) {
     try {
       await executeDownload(downloadArgs);
     } catch (firstErr) {
-      console.warn('[download] Primary download attempt failed:', firstErr);
+      console.warn('[download] Primary download attempt failed, trying fallback stream:', firstErr);
+      const fallbackArgs = [
+        ...baseArgs,
+        '-f',
+        isAudioOnly ? 'ba/b' : 'bestvideo+bestaudio/best[ext=mp4]/best',
+        '-o',
+        tempFilePath,
+        targetUrl!,
+      ];
+      await executeDownload(fallbackArgs);
     }
 
     // Locate the actual output file (in case yt-dlp appended an extension)
@@ -277,16 +225,6 @@ export async function GET(req: NextRequest) {
     }
 
     const message = err instanceof Error ? err.message : 'Download failed';
-
-    // If it's a YouTube video and server processing was challenged by cloud bot protection, redirect to instant mirror
-    if (targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'))) {
-      const videoIdMatch = targetUrl.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/);
-      const videoId = videoIdMatch ? videoIdMatch[1] : null;
-      if (videoId) {
-        return NextResponse.redirect(`https://www.ssyoutube.com/watch?v=${videoId}`, 302);
-      }
-    }
-
     return NextResponse.json(
       { error: `Download failed: ${message}` },
       { status: 500 }

@@ -73,45 +73,11 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
   const handleDownload = async (format: VideoFormat) => {
     setDownloadingId(format.id);
+    setDownloadStatus('Downloading...');
     setDownloadSuccessId(null);
     setDownloadError(null);
 
-    // YouTube: Cloud environments (Vercel/AWS) are blocked by YouTube's datacenter firewall.
-    // Use the 100% reliable, zero-cookie direct cloud download mirror.
-    if (media.platform === 'youtube') {
-      const mirrorUrl = format.isAudioOnly
-        ? `https://www.y2mate.com/youtube/${media.id}`
-        : `https://www.ssyoutube.com/watch?v=${media.id}`;
-
-      // Open download in a new tab immediately
-      window.open(mirrorUrl, '_blank');
-
-      if (onRecordDownload) {
-        onRecordDownload({
-          id: `${media.id}_${format.id}_${Date.now()}`,
-          title: media.title,
-          platform: media.platform,
-          thumbnail: media.thumbnail,
-          formatLabel: format.label,
-          downloadDate: Date.now(),
-          url: media.url,
-          filesizeText: format.filesizeText,
-        });
-      }
-
-      setDownloadSuccessId(format.id);
-      setDownloadStatus('Download Opened!');
-      setTimeout(() => {
-        setDownloadSuccessId(null);
-        setDownloadingId(null);
-        setDownloadStatus('');
-      }, 3500);
-      return;
-    }
-
-    // Other platforms (Telegram, Instagram, Facebook, TikTok): direct in-browser download
     try {
-      setDownloadStatus('Downloading...');
       const params = new URLSearchParams();
       params.set('url', media.url);
       params.set('format_id', format.id);
@@ -127,7 +93,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
       const a = document.createElement('a');
       a.href = downloadUrl;
       const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
-      a.download = `${cleanTitle}.${format.ext || 'mp4'}`;
+      a.download = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -279,18 +245,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                 </div>
               )}
               <div className="flex items-center gap-2.5 shrink-0 ml-auto">
-                {media.platform === 'youtube' && (
-                  <a
-                    href={`https://www.ssyoutube.com/watch?v=${media.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-500/10 hover:bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-md transition-colors"
-                    title="Direct web mirror (no cookies required)"
-                  >
-                    <span>Instant Mirror</span>
-                    <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
-                )}
                 <a
                   href={media.url}
                   target="_blank"
@@ -303,27 +257,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
               </div>
             </div>
           </div>
-
-          {/* Error / Mirror Alert Banner */}
-          {downloadError && (
-            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-800 dark:text-amber-200">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <span>{downloadError.message}</span>
-              </div>
-              {downloadError.mirrorUrl && (
-                <a
-                  href={downloadError.mirrorUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition-colors shrink-0 shadow-sm"
-                >
-                  <span>Open Instant Mirror</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-            </div>
-          )}
 
           {/* Quick Quality Selector Box */}
           {selectedFormatObj && (
@@ -350,12 +283,12 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     variant="success"
                     disabled={downloadingId === selectedFormatObj.id}
                     onClick={() => handleDownload(selectedFormatObj)}
-                    className="flex-1 sm:flex-none h-10 px-5 font-bold shadow-md shadow-emerald-600/25 min-w-[140px]"
+                    className="flex-1 sm:flex-none h-10 px-6 font-bold shadow-md shadow-emerald-600/25 min-w-[150px]"
                   >
                     {downloadingId === selectedFormatObj.id ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="truncate">{downloadStatus || 'Preparing...'}</span>
+                        <span className="truncate">{downloadStatus || 'Starting...'}</span>
                       </>
                     ) : downloadSuccessId === selectedFormatObj.id ? (
                       <>
@@ -369,51 +302,6 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       </>
                     )}
                   </Button>
-
-                  {media.platform === 'youtube' && (
-                    <a
-                      href={`https://www.ssyoutube.com/watch?v=${media.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 text-xs font-bold transition-all shadow-sm whitespace-nowrap"
-                      title="Direct web mirror without server processing"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>Instant Mirror</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* YouTube Guaranteed Direct Download Gateways */}
-          {media.platform === 'youtube' && (
-            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 dark:bg-red-950/20 p-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Cloud Gateways (No cookies required • 100% working in production):</span>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <a
-                    href={`https://www.ssyoutube.com/watch?v=${media.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm transition-colors"
-                  >
-                    <span>Server 1 (MP4 Video)</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                  <a
-                    href={`https://www.y2mate.com/youtube/${media.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm transition-colors"
-                  >
-                    <span>Server 2 (MP3 Audio)</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
                 </div>
               </div>
             </div>

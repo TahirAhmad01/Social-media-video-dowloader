@@ -296,22 +296,6 @@ export default function Home() {
                 <div>
                   <strong className="font-semibold">Notice:</strong> {error}
                 </div>
-                {detectedPlatform === 'youtube' && url.trim() && (
-                  <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-3">
-                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                      Guaranteed Instant Alternative (Zero setup / No cookies needed):
-                    </span>
-                    <a
-                      href={`https://www.ssyoutube.com/watch?v=${(url.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/)?.[1] || '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-bold transition-colors shadow-sm"
-                    >
-                      <span>Open Instant Web Mirror</span>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           </div>

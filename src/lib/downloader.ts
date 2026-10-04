@@ -178,14 +178,18 @@ export function getYtDlpBaseArgs(): string[] {
   const args = [
     '--no-warnings',
     '--no-playlist',
-    '--no-check-certificates',
     '--js-runtimes',
-    'node',
+    `node:${process.execPath || 'node'}`,
     '--user-agent',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     '--extractor-args',
-    'youtube:player_client=visionos,ios_creator,android_vr',
+    'youtube:player_client=visionos',
   ];
+
+  const ffmpeg = getFfmpegPath();
+  if (ffmpeg) {
+    args.push('--ffmpeg-location', ffmpeg);
+  }
 
   if (process.env.YOUTUBE_PO_TOKEN) {
     args.push('--extractor-args', `youtube:po_token=${process.env.YOUTUBE_PO_TOKEN}`);
@@ -207,11 +211,6 @@ export function getYtDlpBaseArgs(): string[] {
 
   if (process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
     args.push('--proxy', (process.env.HTTP_PROXY || process.env.HTTPS_PROXY)!);
-  }
-
-  const ffmpeg = getFfmpegPath();
-  if (ffmpeg) {
-    args.push('--ffmpeg-location', ffmpeg);
   }
 
   return args;
