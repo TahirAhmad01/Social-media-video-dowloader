@@ -3,7 +3,12 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getYtDlpPath, getYtDlpBaseArgs } from '@/lib/downloader';
+import {
+  getYtDlpPath,
+  getYtDlpBaseArgs,
+  buildYtDlpDownloadArgs,
+  ensureUniversalVideoCompatibility,
+} from '@/lib/downloader';
 import { cleanVideoUrl } from '@/lib/url-detector';
 
 export const runtime = 'nodejs';
@@ -178,59 +183,12 @@ export async function GET(req: NextRequest) {
 
   // Use yt-dlp to download and convert/merge directly on the server
   const ytDlp = await getYtDlpPath();
-  const baseArgs = getYtDlpBaseArgs();
 
   // Create unique temp file path
   const tempId = `dl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tempFilePath = path.join(os.tmpdir(), `${tempId}.${ext}`);
 
-  const downloadArgs = [...baseArgs];
-
-  if (isAudioOnly) {
-    downloadArgs.push(
-      '-x',
-      '--audio-format',
-      'mp3',
-      '--audio-quality',
-      '0',
-      '-o',
-      tempFilePath,
-      targetUrl!
-    );
-  } else if (formatId.startsWith('video-')) {
-    const raw = formatId.replace('video-', '');
-    const height = raw === '8k' ? '4320' : raw === '4k' ? '2160' : raw;
-    downloadArgs.push(
-      '-f',
-      `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`,
-      '--merge-output-format',
-      'mp4',
-      '-o',
-      tempFilePath,
-      targetUrl!
-    );
-  } else if (formatId === 'best' || formatId === 'best-video') {
-    downloadArgs.push(
-      '-f',
-      'bestvideo+bestaudio/best',
-      '--merge-output-format',
-      'mp4',
-      '-o',
-      tempFilePath,
-      targetUrl!
-    );
-  } else {
-    // Exact format code or fallback
-    downloadArgs.push(
-      '-f',
-      `${formatId}+bestaudio/bestvideo[format_id=${formatId}]+bestaudio/${formatId}/best`,
-      '--merge-output-format',
-      'mp4',
-      '-o',
-      tempFilePath,
-      targetUrl!
-    );
-  }
+  const downloadArgs = buildYtDlpDownloadArgs(formatId, targetUrl!, tempFilePath);
 
   try {
     const executeDownload = (args: string[]) =>
@@ -265,10 +223,11 @@ export async function GET(req: NextRequest) {
       await executeDownload(downloadArgs);
     } catch (firstErr) {
       console.warn('[download] Primary download attempt failed, trying fallback stream:', firstErr);
+      const baseArgs = getYtDlpBaseArgs();
       const fallbackArgs = [
         ...baseArgs,
         '-f',
-        isAudioOnly ? 'ba/b' : 'bestvideo+bestaudio/best[ext=mp4]/best',
+        isAudioOnly ? 'ba/b' : 'bestvideo[vcodec^=avc]+bestaudio/bestvideo+bestaudio/best[ext=mp4]/best',
         '-o',
         tempFilePath,
         targetUrl!,
@@ -288,6 +247,11 @@ export async function GET(req: NextRequest) {
 
     if (!fs.existsSync(actualFilePath)) {
       throw new Error('Downloaded file was not found on server');
+    }
+
+    // Ensure video stream is compatible with standard QuickTime/Safari/Windows/Android players (transcodes AV1/VP9 to H.264)
+    if (!isAudioOnly) {
+      await ensureUniversalVideoCompatibility(actualFilePath);
     }
 
     const fileStat = fs.statSync(actualFilePath);

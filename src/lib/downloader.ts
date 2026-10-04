@@ -216,6 +216,171 @@ export function getYtDlpBaseArgs(): string[] {
   return args;
 }
 
+export function buildYtDlpDownloadArgs(formatId: string, targetUrl: string, tempFilePath: string): string[] {
+  const baseArgs = getYtDlpBaseArgs();
+  const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
+
+  if (isAudioOnly) {
+    return [
+      ...baseArgs,
+      '-x',
+      '--audio-format',
+      'mp3',
+      '--audio-quality',
+      '0',
+      '-o',
+      tempFilePath,
+      targetUrl,
+    ];
+  }
+
+  // Parse requested resolution height
+  let reqHeight = 1080;
+  if (formatId.startsWith('video-')) {
+    const raw = formatId.replace('video-', '');
+    reqHeight = raw === '8k' ? 4320 : raw === '4k' ? 2160 : raw === '1440' ? 1440 : parseInt(raw, 10) || 1080;
+  }
+
+  // In portrait reels (e.g. 720x1280, 1080x1920, 1440x2560), the longer dimension is height in yt-dlp
+  // 720p corresponds to 1280 maxDim, 1080p to 1920 maxDim, 1440p to 2560 maxDim
+  const maxDim = reqHeight <= 720 ? 1280 : reqHeight <= 1080 ? 1920 : reqHeight <= 1440 ? 2560 : 4320;
+
+  // Format selection priority:
+  // 1. Highest quality H.264 (avc1) video + AAC audio up to maxDim
+  // 2. High compatibility progressive MP4 formats (hd, 1, 2, 3)
+  // 3. Any H.264 video + audio
+  // 4. Any video stream matching height + best audio
+  // 5. Fallback to best overall
+  const formatCandidates = [
+    `bestvideo[vcodec^=avc][height<=${maxDim}]+bestaudio[acodec^=mp4a]`,
+    `bestvideo[vcodec^=h264][height<=${maxDim}]+bestaudio[acodec^=mp4a]`,
+    `bestvideo[vcodec^=avc][height<=${maxDim}]+bestaudio`,
+    `bestvideo[vcodec^=h264][height<=${maxDim}]+bestaudio`,
+    `hd`,
+    `1`,
+    `2`,
+    `3`,
+    `bestvideo[vcodec^=avc]+bestaudio`,
+    `bestvideo[vcodec^=h264]+bestaudio`,
+    `best[vcodec^=avc]`,
+    `best[vcodec^=h264]`,
+    `bestvideo[height<=${maxDim}]+bestaudio`,
+    `best[height<=${maxDim}]`,
+    `bestvideo+bestaudio`,
+    `best`,
+  ];
+
+  if (formatId !== 'best' && formatId !== 'best-video' && !formatId.startsWith('video-')) {
+    formatCandidates.unshift(
+      `${formatId}+bestaudio`,
+      `bestvideo[format_id=${formatId}]+bestaudio`,
+      formatId
+    );
+  }
+
+  return [
+    ...baseArgs,
+    '-f',
+    formatCandidates.join('/'),
+    '--merge-output-format',
+    'mp4',
+    '-o',
+    tempFilePath,
+    targetUrl,
+  ];
+}
+
+export async function ensureUniversalVideoCompatibility(filePath: string): Promise<void> {
+  const ffmpeg = getFfmpegPath();
+  if (!ffmpeg || !fs.existsSync(filePath)) return;
+
+  // 1. Probe the file to check video codec
+  const probeInfo = await new Promise<{ videoCodec: string | null; hasAudio: boolean }>((resolve) => {
+    const child = spawn(ffmpeg, ['-i', filePath]);
+    let stderr = '';
+    child.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
+    child.on('close', () => {
+      const vMatch = stderr.match(/Stream #\d+:\d+.*?: Video: ([^,\n]+)/);
+      const aMatch = stderr.match(/Stream #\d+:\d+.*?: Audio: ([^,\n]+)/);
+      resolve({
+        videoCodec: vMatch ? vMatch[1].toLowerCase() : null,
+        hasAudio: !!aMatch,
+      });
+    });
+    child.on('error', () => {
+      resolve({ videoCodec: null, hasAudio: false });
+    });
+  });
+
+  if (!probeInfo.videoCodec) {
+    // Audio-only file or unprobed, no video track to fix
+    return;
+  }
+
+  // Compatible codecs that standard OS/browser players (QuickTime, Safari, Windows, Android) support out of the box
+  const isCompatibleCodec =
+    probeInfo.videoCodec.includes('h264') ||
+    probeInfo.videoCodec.includes('avc1') ||
+    probeInfo.videoCodec.includes('mp4v');
+
+  if (isCompatibleCodec) {
+    return;
+  }
+
+  // Video codec is av01 (AV1), vp9, vp09, or hevc which causes "audio only, no video" in QuickTime and default players
+  console.log(`[downloader] Transcoding incompatible video codec "${probeInfo.videoCodec}" to universal H.264 for: ${filePath}`);
+
+  const tempTranscodePath = `${filePath}.transcoded.mp4`;
+  await new Promise<void>((resolve) => {
+    const transcodeArgs = [
+      '-y',
+      '-i',
+      filePath,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '22',
+      '-c:a',
+      'copy',
+      '-movflags',
+      '+faststart',
+      tempTranscodePath,
+    ];
+
+    const child = spawn(ffmpeg, transcodeArgs);
+    let transcodeErr = '';
+    child.stderr.on('data', (d) => {
+      transcodeErr += d.toString();
+    });
+    child.on('close', (code) => {
+      if (code === 0 && fs.existsSync(tempTranscodePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          fs.renameSync(tempTranscodePath, filePath);
+          console.log(`[downloader] Successfully transcoded to universal H.264: ${filePath}`);
+          resolve();
+        } catch {
+          resolve();
+        }
+      } else {
+        if (fs.existsSync(tempTranscodePath)) {
+          try { fs.unlinkSync(tempTranscodePath); } catch {}
+        }
+        console.warn(`[downloader] Video transcode warning (${code}): ${transcodeErr.slice(0, 200)}`);
+        resolve();
+      }
+    });
+    child.on('error', (err) => {
+      console.warn('[downloader] Failed to spawn ffmpeg for video transcode:', err);
+      resolve();
+    });
+  });
+}
+
 interface RawYtDlpFormat {
   format_id: string;
   ext: string;
@@ -233,6 +398,8 @@ interface RawYtDlpFormat {
   abr?: number;
   url?: string;
   protocol?: string;
+  video_ext?: string;
+  audio_ext?: string;
 }
 
 interface RawYtDlpOutput {
@@ -580,48 +747,49 @@ function processRawMetadata(
     { label: '144p Mobile', height: 144, badge: '144p' },
   ];
 
-  // Progressive streams (already has video + audio)
-  const progressiveFormats = rawFormats.filter(
-    (f) =>
-      f.vcodec &&
-      f.vcodec !== 'none' &&
-      f.acodec &&
-      f.acodec !== 'none' &&
-      f.ext === 'mp4'
-  );
+  // Helper to determine standard resolution height (accounting for portrait reels like 720x1280, 1080x1920)
+  const getStandardHeight = (f: RawYtDlpFormat): number => {
+    if (f.height && f.width && f.height > f.width && f.width >= 240) {
+      return f.width; // In vertical reels, width represents the standard resolution (720, 1080, 1440)
+    }
+    if (f.height && f.height > 0) {
+      return f.height;
+    }
+    if (f.format_id === 'hd' || f.format_id === '1' || f.format_id === '2' || f.format_id === '3') {
+      return 720;
+    }
+    if (f.format_id === 'sd') {
+      return 360;
+    }
+    return 0;
+  };
 
-  // Video streams (filter out storyboard images, mhtml, and zero heights)
-  const videoStreams = rawFormats.filter(
-    (f) =>
-      f.vcodec &&
-      f.vcodec !== 'none' &&
-      f.vcodec !== 'images' &&
-      f.height &&
-      f.height > 0 &&
-      !f.format_id?.startsWith('sb') &&
-      f.ext !== 'mhtml' &&
-      f.protocol !== 'mhtml'
-  );
+  const isVideoFormat = (f: RawYtDlpFormat): boolean => {
+    if (f.vcodec === 'none' || f.vcodec === 'images') return false;
+    if (f.ext === 'mhtml' || f.protocol === 'mhtml' || f.format_id?.startsWith('sb')) return false;
+    if (f.height && f.height > 0) return true;
+    if (f.ext === 'mp4' && (['hd', 'sd', '1', '2', '3'].includes(f.format_id) || f.video_ext === 'mp4')) return true;
+    return false;
+  };
 
-  const maxVideoHeight = videoStreams.reduce((max, f) => Math.max(max, f.height || 0), 0);
+  const videoStreams = rawFormats.filter(isVideoFormat);
+  const maxVideoHeight = videoStreams.reduce((max, f) => Math.max(max, getStandardHeight(f)), 0);
 
   if (videoStreams.length > 0) {
     const seenHeights = new Set<number>();
 
-    // Check predefined target resolutions first, skipping any target that exceeds the video's actual max height
     for (const target of resolutionTargets) {
       if (target.height > maxVideoHeight + 35) {
-        continue; // DYNAMIC: Never show 4K or 2K if the video max resolution does not support it
+        continue;
       }
 
       const match = videoStreams.find(
-        (f) => f.height && Math.abs(f.height - target.height) <= 35
+        (f) => Math.abs(getStandardHeight(f) - target.height) <= 35
       );
 
-      if (match && !seenHeights.has(match.height || target.height)) {
-        seenHeights.add(match.height || target.height);
+      if (match && !seenHeights.has(target.height)) {
+        seenHeights.add(target.height);
         let size = match.filesize || match.filesize_approx;
-        // Estimate size if missing and duration is present
         if (!size && (match.tbr || match.vbr) && raw.duration) {
           const bitrate = (match.tbr || ((match.vbr || 0) + 128)) * 1024;
           size = Math.round((bitrate * raw.duration) / 8);
@@ -644,41 +812,6 @@ function processRawMetadata(
       }
     }
 
-    // Also include any other unique heights found in videoStreams that weren't captured
-    const allAvailableHeights = [...new Set(videoStreams.map((f) => f.height).filter(Boolean) as number[])].sort(
-      (a, b) => b - a
-    );
-
-    for (const h of allAvailableHeights) {
-      if (!seenHeights.has(h)) {
-        const match = videoStreams.find((f) => f.height === h);
-        if (match) {
-          seenHeights.add(h);
-          let size = match.filesize || match.filesize_approx;
-          if (!size && (match.tbr || match.vbr) && raw.duration) {
-            const bitrate = (match.tbr || ((match.vbr || 0) + 128)) * 1024;
-            size = Math.round((bitrate * raw.duration) / 8);
-          }
-
-          const badge = h >= 2160 ? '4K' : h >= 1440 ? '2K' : `${h}p`;
-          formats.push({
-            id: `video-${h}`,
-            label: `${h}p Quality`,
-            ext: 'mp4',
-            resolution: `${h}p`,
-            height: h,
-            filesize: size,
-            filesizeText: formatBytes(size),
-            formatNote: `${match.fps ? match.fps + 'fps ' : ''}MP4`,
-            hasVideo: true,
-            hasAudio: true,
-            isAudioOnly: false,
-            qualityBadge: badge,
-          });
-        }
-      }
-    }
-
     // Ensure formats are sorted descending by height (highest quality first)
     formats.sort((a, b) => {
       if (a.isAudioOnly) return 1;
@@ -686,7 +819,6 @@ function processRawMetadata(
       return (b.height || 0) - (a.height || 0);
     });
 
-    // Always ensure at least "Best Quality (Default)" exists
     if (!formats.some((f) => f.hasVideo)) {
       formats.unshift({
         id: 'best-video',
@@ -699,25 +831,7 @@ function processRawMetadata(
         qualityBadge: 'BEST',
       });
     }
-  } else if (progressiveFormats.length > 0) {
-    for (const prog of progressiveFormats) {
-      const size = prog.filesize || prog.filesize_approx;
-      formats.push({
-        id: prog.format_id,
-        label: `${prog.height ? prog.height + 'p' : 'Standard'} (MP4)`,
-        ext: 'mp4',
-        resolution: prog.resolution || `${prog.height || 720}p`,
-        filesize: size,
-        filesizeText: formatBytes(size),
-        hasVideo: true,
-        hasAudio: true,
-        isAudioOnly: false,
-        url: prog.url,
-        qualityBadge: prog.height ? `${prog.height}p` : 'HD',
-      });
-    }
   } else {
-    // Generic fallback format
     formats.push({
       id: 'best',
       label: 'Standard Quality (MP4)',
@@ -734,8 +848,11 @@ function processRawMetadata(
   let directUrl: string | undefined = undefined;
   if (raw.url && raw.url.startsWith('http')) {
     directUrl = raw.url;
-  } else if (progressiveFormats.length > 0 && progressiveFormats[0].url) {
-    directUrl = progressiveFormats[0].url;
+  } else {
+    const directProg = rawFormats.find((f) => f.ext === 'mp4' && f.url && f.url.startsWith('http') && !f.format_id?.endsWith('a'));
+    if (directProg) {
+      directUrl = directProg.url;
+    }
   }
 
   let finalPlatform = detectedPlatform;

@@ -2,7 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
-import { getYtDlpPath, getYtDlpBaseArgs } from '@/lib/downloader';
+import {
+  getYtDlpPath,
+  getYtDlpBaseArgs,
+  buildYtDlpDownloadArgs,
+  ensureUniversalVideoCompatibility,
+} from '@/lib/downloader';
 import { cleanVideoUrl } from '@/lib/url-detector';
 
 export type TaskStatus = 'queued' | 'downloading' | 'processing' | 'ready' | 'failed' | 'cancelled';
@@ -279,57 +284,11 @@ async function executeTaskInBackground(task: BackgroundTask, directUrl?: string)
     if (cancelled) return;
 
     // 3. Fallback to local yt-dlp execution
-    task.status = 'processing';
+    task.status = 'downloading';
     task.updatedAt = Date.now();
 
     const ytDlp = await getYtDlpPath();
-    const baseArgs = getYtDlpBaseArgs();
-    const downloadArgs = [...baseArgs];
-
-    if (task.isAudioOnly) {
-      downloadArgs.push(
-        '-x',
-        '--audio-format',
-        'mp3',
-        '--audio-quality',
-        '0',
-        '-o',
-        targetFilePath,
-        task.url
-      );
-    } else if (task.formatId.startsWith('video-')) {
-      const raw = task.formatId.replace('video-', '');
-      const height = raw === '8k' ? '4320' : raw === '4k' ? '2160' : raw;
-      downloadArgs.push(
-        '-f',
-        `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`,
-        '--merge-output-format',
-        'mp4',
-        '-o',
-        targetFilePath,
-        task.url
-      );
-    } else if (task.formatId === 'best' || task.formatId === 'best-video') {
-      downloadArgs.push(
-        '-f',
-        'bestvideo+bestaudio/best',
-        '--merge-output-format',
-        'mp4',
-        '-o',
-        targetFilePath,
-        task.url
-      );
-    } else {
-      downloadArgs.push(
-        '-f',
-        `${task.formatId}+bestaudio/bestvideo[format_id=${task.formatId}]+bestaudio/${task.formatId}/best`,
-        '--merge-output-format',
-        'mp4',
-        '-o',
-        targetFilePath,
-        task.url
-      );
-    }
+    const downloadArgs = buildYtDlpDownloadArgs(task.formatId, task.url, targetFilePath);
 
     await new Promise<void>((resolve, reject) => {
       const child = spawn(ytDlp, downloadArgs);
@@ -395,6 +354,13 @@ async function executeTaskInBackground(task: BackgroundTask, directUrl?: string)
 
     if (!fs.existsSync(finalPath)) {
       throw new Error('Downloaded file not found on server disk');
+    }
+
+    // Ensure video stream is compatible with standard QuickTime/Safari/Windows/Android players (transcodes AV1/VP9 to H.264)
+    if (!task.isAudioOnly) {
+      task.status = 'processing';
+      task.updatedAt = Date.now();
+      await ensureUniversalVideoCompatibility(finalPath);
     }
 
     finishTask(task, finalPath);
