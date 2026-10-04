@@ -18,52 +18,64 @@ function sanitizeFilename(name: string): string {
 }
 
 async function resolveCloudDownloadUrl(targetUrl: string, formatId: string): Promise<string | null> {
-  try {
-    const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
-    let resolution = '1080';
-    if (isAudioOnly) {
-      resolution = 'mp3';
-    } else if (formatId === 'video-4320' || formatId === 'video-8k' || formatId === '8k') {
-      resolution = '8k';
-    } else if (formatId === 'video-2160' || formatId === 'video-4k' || formatId === '4k') {
-      resolution = '4k';
-    } else if (formatId === 'video-1440' || formatId === '1440') {
-      resolution = '1440';
-    } else {
-      resolution = formatId.replace('video-', '') || '1080';
-    }
+  const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
+  let primaryResolution = '1080';
+  if (isAudioOnly) {
+    primaryResolution = 'mp3';
+  } else if (formatId === 'video-4320' || formatId === 'video-8k' || formatId === '8k') {
+    primaryResolution = '8k';
+  } else if (formatId === 'video-2160' || formatId === 'video-4k' || formatId === '4k') {
+    primaryResolution = '4k';
+  } else if (formatId === 'video-1440' || formatId === '1440') {
+    primaryResolution = '1440';
+  } else {
+    primaryResolution = formatId.replace('video-', '') || '1080';
+  }
 
-    const res = await fetch(
-      `https://p.savenow.to/ajax/download.php?copyright=0&format=${resolution}&url=${encodeURIComponent(targetUrl)}&api=dfcb6d76f2f6a9894gjkege8a4ab88b398`,
-      {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        },
-      }
-    );
+  const resolutionsToTry = [primaryResolution];
+  if (!isAudioOnly) {
+    if (primaryResolution === '8k') resolutionsToTry.push('4k', '1440', '1080');
+    else if (primaryResolution === '4k') resolutionsToTry.push('1440', '1080');
+    else if (primaryResolution === '1440') resolutionsToTry.push('1080', '720');
+  }
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || !data.id) return null;
+  for (const resolution of resolutionsToTry) {
+    try {
+      const res = await fetch(
+        `https://p.savenow.to/ajax/download.php?copyright=0&format=${resolution}&url=${encodeURIComponent(targetUrl)}&api=dfcb6d76f2f6a9894gjkege8a4ab88b398`,
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          },
+        }
+      );
 
-    for (let i = 0; i < 15; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const pRes = await fetch(`https://p.savenow.to/api/progress?id=${data.id}`, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        },
-      });
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        if (pData.download_url) {
-          return pData.download_url;
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => ({}));
+      if (!data || !data.id) continue;
+
+      for (let i = 0; i < 35; i++) {
+        await new Promise((r) => setTimeout(r, 800));
+        const pRes = await fetch(`https://p.savenow.to/api/progress?id=${data.id}`, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          },
+        });
+        if (pRes.ok) {
+          const pData = await pRes.json().catch(() => ({}));
+          if (pData.download_url) {
+            return pData.download_url;
+          }
+          if (pData.success === -1 || (pData.text && pData.text.toLowerCase().includes('error'))) {
+            break;
+          }
         }
       }
+    } catch (err) {
+      console.warn(`[download] Cloud resolver error for ${resolution}:`, err);
     }
-  } catch (err) {
-    console.warn('[download] Cloud resolver error:', err);
   }
   return null;
 }
