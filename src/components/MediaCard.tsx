@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Download,
   Music,
@@ -14,11 +14,21 @@ import {
   Play,
   Sparkles,
   AlertTriangle,
+  X,
+  ArrowDownCircle,
 } from 'lucide-react';
 import { MediaMetadata, VideoFormat, DownloadHistoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
+
+export interface DownloadProgressInfo {
+  percent: number | null;
+  receivedBytes: number;
+  totalBytes: number | null;
+  speed: string;
+  timeRemaining?: string;
+}
 
 interface MediaCardProps {
   media: MediaMetadata;
@@ -27,6 +37,8 @@ interface MediaCardProps {
 
 export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressInfo | null>(null);
+  const [activeDownloadFormat, setActiveDownloadFormat] = useState<VideoFormat | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<string>('');
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<{ id: string; message: string; mirrorUrl?: string } | null>(null);
@@ -34,6 +46,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
   const [filterType, setFilterType] = useState<'all' | 'video' | 'audio'>('all');
   const [selectedFormatId, setSelectedFormatId] = useState<string>('');
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (media.formats.length > 0) {
@@ -71,11 +84,49 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
     return 'default';
   };
 
+  const triggerBlobDownload = (blob: Blob, format: VideoFormat) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
+    a.download = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+  };
+
+  const handleCancelDownload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setDownloadingId(null);
+    setActiveDownloadFormat(null);
+    setDownloadProgress(null);
+    setDownloadStatus('');
+  };
+
   const handleDownload = async (format: VideoFormat) => {
+    if (downloadingId === format.id) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setDownloadingId(format.id);
-    setDownloadStatus('Preparing stream...');
+    setActiveDownloadFormat(format);
+    setDownloadStatus('Starting download...');
     setDownloadSuccessId(null);
     setDownloadError(null);
+    setDownloadProgress({
+      percent: 0,
+      receivedBytes: 0,
+      totalBytes: null,
+      speed: '',
+    });
 
     try {
       const params = new URLSearchParams();
@@ -88,26 +139,133 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
       if (format.url) {
         params.set('direct_url', format.url);
       }
+
       // Fetch media directly from our in-house /api/download stream
-      const res = await fetch(`/api/download?${params.toString()}`);
+      const res = await fetch(`/api/download?${params.toString()}`, {
+        signal: abortController.signal,
+      });
+
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         throw new Error(errJson.error || `Download failed (HTTP ${res.status})`);
       }
 
-      setDownloadStatus('Saving file...');
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      // Determine total expected bytes from headers or media metadata
+      const contentLengthHeader = res.headers.get('content-length');
+      let totalBytes: number | null = contentLengthHeader ? parseInt(contentLengthHeader, 10) : null;
+      if (!totalBytes || isNaN(totalBytes) || totalBytes <= 0) {
+        if (format.filesize && format.filesize > 0) {
+          totalBytes = format.filesize;
+        } else if (format.filesizeText) {
+          const match = format.filesizeText.match(/([\d.]+)\s*(GB|MB|KB|B)/i);
+          if (match) {
+            const val = parseFloat(match[1]);
+            const unit = match[2].toUpperCase();
+            if (unit === 'GB') totalBytes = val * 1024 * 1024 * 1024;
+            else if (unit === 'MB') totalBytes = val * 1024 * 1024;
+            else if (unit === 'KB') totalBytes = val * 1024;
+            else totalBytes = val;
+          }
+        } else if (media.duration && media.duration > 0) {
+          const dur = media.duration;
+          if (format.isAudioOnly) {
+            totalBytes = Math.round(dur * 24 * 1024);
+          } else if (format.height && format.height >= 1080) {
+            totalBytes = Math.round(dur * 420 * 1024);
+          } else if (format.height && format.height >= 720) {
+            totalBytes = Math.round(dur * 250 * 1024);
+          } else if (format.height && format.height >= 480) {
+            totalBytes = Math.round(dur * 140 * 1024);
+          } else {
+            totalBytes = Math.round(dur * 90 * 1024);
+          }
+        }
+      }
 
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
-      a.download = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      if (!res.body) {
+        setDownloadStatus('Saving file...');
+        const blob = await res.blob();
+        triggerBlobDownload(blob, format);
+        return;
+      }
 
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 20000);
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let receivedBytes = 0;
+      const startTime = Date.now();
+      let lastSpeedUpdate = startTime;
+      let bytesSinceLastUpdate = 0;
+      let currentSpeed = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        if (value) {
+          chunks.push(value);
+          receivedBytes += value.length;
+          bytesSinceLastUpdate += value.length;
+
+          const now = Date.now();
+          const elapsed = (now - lastSpeedUpdate) / 1000;
+          if (elapsed >= 0.3) {
+            const bytesPerSec = bytesSinceLastUpdate / elapsed;
+            currentSpeed = `${formatBytes(bytesPerSec)}/s`;
+            bytesSinceLastUpdate = 0;
+            lastSpeedUpdate = now;
+          }
+
+          let percent: number | null = null;
+          let timeRemaining: string | undefined = undefined;
+
+          if (totalBytes && totalBytes > 0) {
+            percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+            const totalElapsed = (now - startTime) / 1000;
+            if (totalElapsed > 1 && receivedBytes > 0) {
+              const avgSpeed = receivedBytes / totalElapsed;
+              const remainingBytes = Math.max(0, totalBytes - receivedBytes);
+              const secLeft = Math.round(remainingBytes / avgSpeed);
+              if (secLeft > 60) {
+                timeRemaining = `${Math.floor(secLeft / 60)}m ${secLeft % 60}s left`;
+              } else if (secLeft > 0) {
+                timeRemaining = `${secLeft}s left`;
+              } else {
+                timeRemaining = 'Almost done...';
+              }
+            }
+          }
+
+          setDownloadProgress({
+            percent,
+            receivedBytes,
+            totalBytes,
+            speed: currentSpeed,
+            timeRemaining,
+          });
+
+          if (percent !== null) {
+            setDownloadStatus(`${percent}%`);
+          } else {
+            setDownloadStatus(formatBytes(receivedBytes));
+          }
+        }
+      }
+
+      // Stream completed successfully
+      setDownloadProgress({
+        percent: 100,
+        receivedBytes,
+        totalBytes: receivedBytes,
+        speed: '',
+        timeRemaining: 'Complete',
+      });
+      setDownloadStatus('Saving to device...');
+
+      const contentType =
+        res.headers.get('content-type') ||
+        (format.isAudioOnly ? 'audio/mpeg' : 'video/mp4');
+      const blob = new Blob(chunks as unknown as BlobPart[], { type: contentType });
+      triggerBlobDownload(blob, format);
 
       if (onRecordDownload) {
         onRecordDownload({
@@ -118,18 +276,28 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
           formatLabel: format.label,
           downloadDate: Date.now(),
           url: media.url,
-          filesizeText: format.filesizeText,
+          filesizeText: formatBytes(receivedBytes),
         });
       }
 
       setDownloadSuccessId(format.id);
       setDownloadStatus('Downloaded!');
+
       setTimeout(() => {
         setDownloadSuccessId(null);
         setDownloadingId(null);
+        setActiveDownloadFormat(null);
+        setDownloadProgress(null);
         setDownloadStatus('');
       }, 4000);
     } catch (err: unknown) {
+      if (abortController.signal.aborted) {
+        setDownloadingId(null);
+        setActiveDownloadFormat(null);
+        setDownloadProgress(null);
+        setDownloadStatus('');
+        return;
+      }
       console.error('Download error:', err);
       const msg = err instanceof Error ? err.message : 'Download failed to start.';
       setDownloadError({
@@ -137,6 +305,8 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
         message: msg,
       });
       setDownloadingId(null);
+      setActiveDownloadFormat(null);
+      setDownloadProgress(null);
       setDownloadStatus('');
     }
   };
@@ -279,6 +449,111 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
             </div>
           )}
 
+          {/* Real-Time Download Progress Card */}
+          {downloadProgress && activeDownloadFormat && (
+            <div className="mb-5 overflow-hidden rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-gradient-to-br from-emerald-50 via-teal-50/70 to-emerald-50/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-950/80 p-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between gap-3 mb-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={cn(
+                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold shadow-md transition-colors',
+                      downloadProgress.percent === 100
+                        ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-emerald-600/30'
+                        : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/40 animate-pulse'
+                    )}
+                  >
+                    {downloadProgress.percent === 100 ? (
+                      <CheckCircle2 className="h-5 w-5" />
+                    ) : (
+                      <ArrowDownCircle className="h-5 w-5 animate-bounce" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
+                        {downloadProgress.percent === 100 ? 'Download Complete' : 'Downloading Media'}
+                      </span>
+                      <span className="rounded bg-emerald-200/80 dark:bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-900 dark:text-emerald-300">
+                        {activeDownloadFormat.label}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[240px] sm:max-w-md">
+                      {media.title}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                  {downloadProgress.percent !== null ? (
+                    <span className="font-mono text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">
+                      {downloadProgress.percent}%
+                    </span>
+                  ) : (
+                    <span className="font-mono text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 animate-pulse">
+                      {formatBytes(downloadProgress.receivedBytes)}
+                    </span>
+                  )}
+                  {downloadProgress.percent !== 100 && (
+                    <button
+                      type="button"
+                      onClick={handleCancelDownload}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/40 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer shadow-sm"
+                      title="Cancel download"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar Track */}
+              <div className="relative h-3.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-900/90 border border-slate-300 dark:border-emerald-500/20 shadow-inner">
+                {downloadProgress.percent !== null ? (
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 shadow-md shadow-emerald-500/50 transition-all duration-200 ease-out relative overflow-hidden"
+                    style={{ width: `${Math.max(2, downloadProgress.percent)}%` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/35 to-transparent animate-shimmer" />
+                  </div>
+                ) : (
+                  <div className="h-full w-1/3 rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 shadow-md shadow-emerald-500/50 animate-indeterminate" />
+                )}
+              </div>
+
+              {/* Progress Stats Footer */}
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs font-mono text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-900 dark:text-slate-200">
+                    {formatBytes(downloadProgress.receivedBytes)}
+                  </span>
+                  {downloadProgress.totalBytes ? (
+                    <span>/ {formatBytes(downloadProgress.totalBytes)}</span>
+                  ) : (
+                    <span>downloaded</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 ml-auto">
+                  {downloadProgress.speed && downloadProgress.percent !== 100 && (
+                    <span className="text-teal-700 dark:text-teal-400 font-semibold">
+                      ⚡ {downloadProgress.speed}
+                    </span>
+                  )}
+                  {downloadProgress.timeRemaining && downloadProgress.percent !== 100 && (
+                    <span className="text-slate-500 dark:text-slate-400">
+                      ⏳ {downloadProgress.timeRemaining}
+                    </span>
+                  )}
+                  {downloadProgress.percent === 100 && (
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                      ✓ Ready in downloads
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Quick Quality Selector Box */}
           {selectedFormatObj && (
             <div className="mb-5 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50/70 dark:bg-gradient-to-br dark:from-violet-950/40 dark:via-purple-900/20 dark:to-slate-900/60 p-4 shadow-sm dark:shadow-lg">
@@ -304,21 +579,25 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     variant="success"
                     disabled={downloadingId === selectedFormatObj.id}
                     onClick={() => handleDownload(selectedFormatObj)}
-                    className="flex-1 sm:flex-none h-10 px-6 font-bold shadow-md shadow-emerald-600/25 min-w-[150px]"
+                    className="flex-1 sm:flex-none h-10 px-6 font-bold shadow-md shadow-emerald-600/25 min-w-[160px]"
                   >
                     {downloadingId === selectedFormatObj.id ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="truncate">{downloadStatus || 'Starting...'}</span>
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        <span className="truncate">
+                          {downloadProgress?.percent !== null && downloadProgress?.percent !== undefined
+                            ? `Downloading ${downloadProgress.percent}%`
+                            : downloadStatus || 'Starting...'}
+                        </span>
                       </>
                     ) : downloadSuccessId === selectedFormatObj.id ? (
                       <>
-                        <CheckCircle2 className="h-4 w-4 text-white" />
+                        <CheckCircle2 className="h-4 w-4 text-white shrink-0" />
                         <span>{downloadStatus || 'Downloaded!'}</span>
                       </>
                     ) : (
                       <>
-                        <Download className="h-4 w-4" />
+                        <Download className="h-4 w-4 shrink-0" />
                         <span>Download Now</span>
                       </>
                     )}
@@ -385,21 +664,29 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       variant={fmt.isAudioOnly ? 'pink' : 'success'}
                       disabled={isDownloading}
                       onClick={() => handleDownload(fmt)}
-                      className="shrink-0 font-bold min-w-[100px]"
+                      className="shrink-0 font-bold min-w-[110px]"
                     >
                       {isDownloading ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span className="truncate">{downloadStatus || 'Starting...'}</span>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                          <span className="truncate">
+                            {downloadProgress?.percent !== null && downloadProgress?.percent !== undefined
+                              ? `${downloadProgress.percent}%`
+                              : downloadStatus || 'Starting...'}
+                          </span>
                         </>
                       ) : isSuccess ? (
                         <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white shrink-0" />
                           <span>Saved!</span>
                         </>
                       ) : (
                         <>
-                          {fmt.isAudioOnly ? <Music className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                          {fmt.isAudioOnly ? (
+                            <Music className="h-3.5 w-3.5 shrink-0" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5 shrink-0" />
+                          )}
                           <span>Download</span>
                         </>
                       )}
