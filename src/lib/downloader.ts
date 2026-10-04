@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { MediaMetadata, VideoFormat } from './types';
-import { detectPlatform, formatBytes, formatDuration } from './url-detector';
+import { detectPlatform, formatBytes, formatDuration, cleanVideoUrl } from './url-detector';
 import { scrapeTelegramPost } from './telegram-scraper';
 
 let cachedFfmpegPath: string | null = null;
@@ -360,7 +360,7 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
     const sizeMap = new Map<number, number>();
 
     for (const af of rawAdaptiveFormats) {
-      if (af.height && typeof af.height === 'number') {
+      if (af.height && typeof af.height === 'number' && af.height > 0) {
         availableHeights.push(af.height);
         if (af.contentLength) {
           const sz = parseInt(af.contentLength, 10);
@@ -373,16 +373,18 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
 
     availableHeights = [...new Set(availableHeights)].sort((a, b) => b - a);
 
-    // If YouTube HTML was scraped without player data or blocked, check title and ensure 4K/2K are offered
+    // If YouTube HTML was scraped without player data or blocked, ONLY offer 4K/8K if explicitly in title
     if (availableHeights.length === 0) {
       const titleUpper = title.toUpperCase();
       if (titleUpper.includes('8K') || titleUpper.includes('4320')) {
         availableHeights = [4320, 2160, 1440, 1080, 720, 480, 360];
       } else if (titleUpper.includes('4K') || titleUpper.includes('2160') || titleUpper.includes('UHD')) {
         availableHeights = [2160, 1440, 1080, 720, 480, 360];
+      } else if (titleUpper.includes('2K') || titleUpper.includes('1440')) {
+        availableHeights = [1440, 1080, 720, 480, 360];
       } else {
-        // Standard set including 4K and 2K
-        availableHeights = [2160, 1440, 1080, 720, 480, 360];
+        // Dynamic standard max resolution: normal videos default up to 1080p (never fake 4K/2K)
+        availableHeights = [1080, 720, 480, 360, 240, 144];
       }
     }
 
@@ -456,11 +458,12 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
 }
 
 export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> {
-  const platform = detectPlatform(targetUrl);
+  const cleanUrl = cleanVideoUrl(targetUrl);
+  const platform = detectPlatform(cleanUrl);
 
   // If it's a telegram link, try Telegram direct scraper first (ultra-fast & direct CDN MP4)
   if (platform === 'telegram') {
-    const tgData = await scrapeTelegramPost(targetUrl);
+    const tgData = await scrapeTelegramPost(cleanUrl);
     if (tgData && tgData.directUrl) {
       return tgData;
     }
@@ -487,7 +490,7 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
 
     for (const strat of clientStrategies) {
       try {
-        const attemptArgs = [...baseWithoutExtractor, ...strat, '-J', targetUrl];
+        const attemptArgs = [...baseWithoutExtractor, ...strat, '-J', cleanUrl];
         rawOutput = await runYtDlpJson(ytDlp, attemptArgs);
         if (rawOutput && rawOutput.title) {
           lastError = null;
@@ -500,7 +503,7 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
     }
   } else {
     try {
-      rawOutput = await runYtDlpJson(ytDlp, [...baseArgs, '-J', targetUrl]);
+      rawOutput = await runYtDlpJson(ytDlp, [...baseArgs, '-J', cleanUrl]);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
     }
@@ -509,15 +512,15 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
   if (!rawOutput) {
     // If yt-dlp failed on telegram, fallback to telegram scraper
     if (platform === 'telegram') {
-      const fallback = await scrapeTelegramPost(targetUrl);
+      const fallback = await scrapeTelegramPost(cleanUrl);
       if (fallback) return fallback;
     }
 
     // If yt-dlp failed on YouTube due to cloud bot challenge, fallback to native YouTube extractor
     if (platform === 'youtube') {
       try {
-        console.log('[downloader] Falling back to native YouTube extractor for:', targetUrl);
-        return await getYouTubeFallbackInfo(targetUrl);
+        console.log('[downloader] Falling back to native YouTube extractor for:', cleanUrl);
+        return await getYouTubeFallbackInfo(cleanUrl);
       } catch (fbErr) {
         console.warn('[downloader] YouTube native fallback also failed:', fbErr);
       }
@@ -526,7 +529,7 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
     throw lastError || new Error('Failed to extract media information');
   }
 
-  return processRawMetadata(rawOutput, targetUrl, platform);
+  return processRawMetadata(rawOutput, cleanUrl, platform);
 }
 
 function processRawMetadata(
@@ -587,16 +590,30 @@ function processRawMetadata(
       f.ext === 'mp4'
   );
 
-  // Video streams (separate or progressive with video codec)
+  // Video streams (filter out storyboard images, mhtml, and zero heights)
   const videoStreams = rawFormats.filter(
-    (f) => f.vcodec && f.vcodec !== 'none' && f.height
+    (f) =>
+      f.vcodec &&
+      f.vcodec !== 'none' &&
+      f.vcodec !== 'images' &&
+      f.height &&
+      f.height > 0 &&
+      !f.format_id?.startsWith('sb') &&
+      f.ext !== 'mhtml' &&
+      f.protocol !== 'mhtml'
   );
+
+  const maxVideoHeight = videoStreams.reduce((max, f) => Math.max(max, f.height || 0), 0);
 
   if (videoStreams.length > 0) {
     const seenHeights = new Set<number>();
 
-    // Check predefined target resolutions first
+    // Check predefined target resolutions first, skipping any target that exceeds the video's actual max height
     for (const target of resolutionTargets) {
+      if (target.height > maxVideoHeight + 35) {
+        continue; // DYNAMIC: Never show 4K or 2K if the video max resolution does not support it
+      }
+
       const match = videoStreams.find(
         (f) => f.height && Math.abs(f.height - target.height) <= 35
       );

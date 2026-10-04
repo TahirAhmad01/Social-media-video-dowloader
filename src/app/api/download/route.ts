@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { getYtDlpPath, getYtDlpBaseArgs } from '@/lib/downloader';
+import { cleanVideoUrl } from '@/lib/url-detector';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,7 +83,8 @@ async function resolveCloudDownloadUrl(targetUrl: string, formatId: string): Pro
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const targetUrl = searchParams.get('url');
+  const rawTargetUrl = searchParams.get('url');
+  const targetUrl = rawTargetUrl ? cleanVideoUrl(rawTargetUrl) : null;
   const formatId = searchParams.get('format_id') || 'best';
   const rawTitle = searchParams.get('title') || 'video';
   const directMediaUrl = searchParams.get('direct_url');

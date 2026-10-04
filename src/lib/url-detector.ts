@@ -117,3 +117,24 @@ export function formatBytes(bytes?: number): string {
   }
   return `${val.toFixed(1)} ${units[i]}`;
 }
+
+export function cleanVideoUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+  const trimmed = rawUrl.trim();
+  const platform = detectPlatform(trimmed);
+
+  if (platform === 'youtube') {
+    const match = trimmed.match(
+      /(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=|\/shorts\/)([^#&?]+)/
+    );
+    if (match && match[1]) {
+      const isShorts = trimmed.includes('/shorts/');
+      return isShorts
+        ? `https://www.youtube.com/shorts/${match[1]}`
+        : `https://www.youtube.com/watch?v=${match[1]}`;
+    }
+  }
+
+  return trimmed;
+}
+

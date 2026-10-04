@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMediaInfo, getYouTubeFallbackInfo } from '@/lib/downloader';
+import { cleanVideoUrl } from '@/lib/url-detector';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    trimmedUrl = url.trim();
+    trimmedUrl = cleanVideoUrl(url.trim());
     const info = await fetchMediaInfo(trimmedUrl);
 
     return NextResponse.json({ success: true, data: info });
