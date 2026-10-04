@@ -49,7 +49,7 @@ export default function PlatformTabs({
   ];
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+    <div className="w-full max-w-full overflow-x-auto no-scrollbar flex items-center justify-start sm:justify-center gap-2 mb-6 sm:mb-8 px-1 py-1">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activePlatform === tab.id;
@@ -59,14 +59,14 @@ export default function PlatformTabs({
             type="button"
             onClick={() => onSelectPlatform(tab.id as SupportedPlatform | 'all')}
             className={cn(
-              'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 cursor-pointer border select-none',
+              'flex items-center gap-1.5 sm:gap-2 rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer border select-none shrink-0',
               isActive
                 ? tab.activeClass
                 : 'border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white hover:-translate-y-0.5 shadow-sm dark:shadow-none'
             )}
           >
-            <Icon size={16} />
-            <span>{tab.label}</span>
+            <Icon size={15} />
+            <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         );
       })}

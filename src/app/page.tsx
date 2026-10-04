@@ -136,25 +136,25 @@ export default function Home() {
     <div className="min-h-screen flex flex-col justify-between">
       <Header />
 
-      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 flex-1">
+      <main className="mx-auto w-full max-w-6xl px-3.5 sm:px-6 flex-1 overflow-x-hidden">
         {/* Hero Section */}
-        <section className="pt-12 sm:pt-18 pb-10 text-center">
+        <section className="pt-8 sm:pt-14 md:pt-18 pb-8 sm:pb-10 text-center">
           {/* Company & Product Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-gradient-to-r from-violet-600/10 via-indigo-600/10 to-pink-600/10 dark:from-violet-600/15 dark:via-indigo-600/15 dark:to-pink-600/15 px-4 py-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-md shadow-violet-500/5 dark:shadow-violet-500/10 mb-6">
-            <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-            <span>QStream Downloader</span>
+          <div className="inline-flex max-w-full items-center gap-1.5 sm:gap-2 rounded-full border border-violet-500/25 bg-gradient-to-r from-violet-600/10 via-indigo-600/10 to-pink-600/10 dark:from-violet-600/15 dark:via-indigo-600/15 dark:to-pink-600/15 px-3 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-md shadow-violet-500/5 dark:shadow-violet-500/10 mb-4 sm:mb-6">
+            <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+            <span className="truncate">QStream Downloader</span>
             <span className="text-slate-400 dark:text-white/30">•</span>
-            <span className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">8K, 4K & MP3 Suite</span>
+            <span className="text-slate-600 dark:text-slate-300 font-mono text-[10px] sm:text-[11px] truncate">8K, 4K & MP3 Suite</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-5 leading-[1.15] font-['Plus_Jakarta_Sans']">
-            Download Any Video in <br />
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-4 sm:mb-5 leading-[1.2] font-['Plus_Jakarta_Sans']">
+            Download Any Video in <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-violet-600 via-pink-600 to-sky-600 dark:from-violet-400 dark:via-pink-400 dark:to-sky-400 bg-clip-text text-transparent">
               Stunning 8K, 4K & Lossless Audio
             </span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+          <p className="mx-auto max-w-2xl text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-300 mb-6 sm:mb-8 leading-relaxed px-1 sm:px-0">
             High-speed media extraction engine.{' '}
             Extract original quality video and audio from <strong className="text-red-600 dark:text-red-400">YouTube (8K, 4K, Shorts)</strong>,{' '}
             <strong className="text-pink-600 dark:text-pink-400">Instagram (Reels)</strong>,{' '}
@@ -172,9 +172,9 @@ export default function Home() {
           />
 
           {/* Search/URL Form Card */}
-          <div className="mx-auto max-w-3xl mb-5 rounded-2xl border border-slate-200/80 dark:border-white/[0.12] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl p-2.5 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-violet-500/10 focus-within:border-violet-500/60 focus-within:shadow-violet-500/25 transition-all">
+          <div className="mx-auto max-w-3xl mb-4 sm:mb-5 rounded-2xl border border-slate-200/80 dark:border-white/[0.12] bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl p-2 sm:p-2.5 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-violet-500/10 focus-within:border-violet-500/60 focus-within:shadow-violet-500/25 transition-all">
             <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-xl bg-slate-50/90 dark:bg-slate-950/90 border border-slate-200/60 dark:border-white/5 p-2 sm:pl-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0 px-1 sm:px-0">
                 <Search className="h-5 w-5 text-violet-500 dark:text-violet-400 shrink-0" />
                 <input
                   type="text"
@@ -184,13 +184,28 @@ export default function Home() {
                     if (error) setError(null);
                   }}
                   placeholder={platformMeta.placeholder}
-                  className="w-full bg-transparent text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none truncate font-medium"
+                  className="w-full bg-transparent text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none truncate font-medium py-1 sm:py-0"
                   autoComplete="off"
                   spellCheck="false"
                 />
+                {url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setUrl('');
+                      setError(null);
+                    }}
+                    className="h-8 w-8 sm:hidden p-0 text-slate-400 hover:text-slate-900 dark:hover:text-white shrink-0"
+                    title="Clear input"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 justify-end">
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-stretch sm:justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200/50 dark:border-white/5">
                 {url ? (
                   <Button
                     type="button"
@@ -200,7 +215,7 @@ export default function Home() {
                       setUrl('');
                       setError(null);
                     }}
-                    className="h-9 w-9 p-0 text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    className="hidden sm:inline-flex h-9 w-9 p-0 text-slate-400 hover:text-slate-900 dark:hover:text-white shrink-0"
                     title="Clear input"
                   >
                     <X className="h-4 w-4" />
@@ -211,10 +226,10 @@ export default function Home() {
                     variant="outline"
                     size="sm"
                     onClick={handlePaste}
-                    className="h-9 text-xs font-semibold gap-1.5 border-slate-200 dark:border-white/10 hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-200"
+                    className="h-10 sm:h-9 flex-1 sm:flex-none text-xs font-semibold gap-1.5 border-slate-200 dark:border-white/10 hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-700 dark:hover:text-violet-200"
                     title="Paste from clipboard"
                   >
-                    <ClipboardPaste className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                    <ClipboardPaste className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
                     <span>Paste</span>
                   </Button>
                 )}
@@ -222,17 +237,17 @@ export default function Home() {
                 <Button
                   type="submit"
                   disabled={loading || !url.trim()}
-                  className="h-10 px-5 font-bold shadow-md shadow-violet-500/25"
+                  className="h-10 px-4 sm:px-5 flex-1 sm:flex-none font-bold shadow-md shadow-violet-500/25 min-w-[120px]"
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                       <span>Analyzing...</span>
                     </>
                   ) : (
                     <>
                       <span>Get Video</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4 shrink-0" />
                     </>
                   )}
                 </Button>
@@ -241,48 +256,48 @@ export default function Home() {
           </div>
 
           {/* Quick test chips */}
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-8">
-            <span className="font-semibold text-slate-500 mr-1">Quick Test:</span>
+          <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mb-6 sm:mb-8">
+            <span className="font-semibold text-slate-500 mr-1 w-full sm:w-auto text-center">Quick Test:</span>
             <button
               type="button"
               onClick={() => handleSelectSample('https://www.youtube.com/watch?v=aqz-KE-bpKQ')}
-              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
+              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-2.5 sm:px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
             >
               🎬 YouTube 4K (Big Buck Bunny)
             </button>
             <button
               type="button"
               onClick={() => handleSelectSample('https://t.me/durov/532')}
-              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-sky-500/30 hover:bg-sky-50 dark:hover:bg-sky-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
+              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-2.5 sm:px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-sky-500/30 hover:bg-sky-50 dark:hover:bg-sky-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
             >
               ✈️ Telegram (Durov Post)
             </button>
             <button
               type="button"
               onClick={() => handleSelectSample('https://www.youtube.com/watch?v=nYvwY9yLNSA')}
-              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-pink-500/30 hover:bg-pink-50 dark:hover:bg-pink-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
+              className="rounded-full border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 px-2.5 sm:px-3 py-1 text-slate-700 dark:text-slate-300 hover:border-pink-500/30 hover:bg-pink-50 dark:hover:bg-pink-500/10 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium shadow-sm dark:shadow-none"
             >
               🎵 Asim Azhar (1080p OST)
             </button>
           </div>
 
           {/* Performance Stats Bar */}
-          <div className="mx-auto max-w-3xl grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
+          <div className="mx-auto max-w-3xl grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/60 dark:bg-white/[0.02] border border-slate-200/50 dark:border-transparent shadow-sm dark:shadow-none">
-              <span className="font-mono text-base font-extrabold text-slate-900 dark:text-white">4K UHD</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Up to 2160p 60fps</span>
+              <span className="font-mono text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">4K UHD</span>
+              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">Up to 2160p 60fps</span>
             </div>
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/60 dark:bg-white/[0.02] border border-slate-200/50 dark:border-transparent shadow-sm dark:shadow-none">
-              <span className="font-mono text-base font-extrabold text-emerald-600 dark:text-emerald-400">&lt; 0.8s</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Stream Processing</span>
+              <span className="font-mono text-sm sm:text-base font-extrabold text-emerald-600 dark:text-emerald-400">&lt; 0.8s</span>
+              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">Stream Processing</span>
             </div>
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/60 dark:bg-white/[0.02] border border-slate-200/50 dark:border-transparent shadow-sm dark:shadow-none">
-              <span className="font-mono text-base font-extrabold text-violet-600 dark:text-violet-400">320 kbps</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Lossless MP3 Audio</span>
+              <span className="font-mono text-sm sm:text-base font-extrabold text-violet-600 dark:text-violet-400">320 kbps</span>
+              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">Lossless MP3 Audio</span>
             </div>
             <div className="flex flex-col items-center p-2 rounded-lg bg-white/60 dark:bg-white/[0.02] border border-slate-200/50 dark:border-transparent shadow-sm dark:shadow-none">
-              <span className="font-mono text-base font-extrabold text-pink-600 dark:text-pink-400">100% Free</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Zero Watermarks</span>
+              <span className="font-mono text-sm sm:text-base font-extrabold text-pink-600 dark:text-pink-400">100% Free</span>
+              <span className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">Zero Watermarks</span>
             </div>
           </div>
         </section>

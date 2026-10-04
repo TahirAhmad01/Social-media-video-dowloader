@@ -5,19 +5,19 @@ import { DownloadCloud, ExternalLink, Globe, Code2 } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-slate-200/80 dark:border-white/[0.08] mt-20 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur-xl">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 pb-10 border-b border-slate-200/80 dark:border-white/[0.08]">
+    <footer className="w-full border-t border-slate-200/80 dark:border-white/[0.08] mt-12 sm:mt-20 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur-xl">
+      <div className="mx-auto max-w-6xl px-3.5 sm:px-6 py-8 sm:py-12">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 sm:gap-8 pb-6 sm:pb-10 border-b border-slate-200/80 dark:border-white/[0.08]">
           {/* Company Brand Column */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 shadow-md shadow-violet-500/30">
-                <DownloadCloud className="h-5 w-5 text-white" />
+          <div className="flex flex-col gap-2 sm:gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 shadow-md shadow-violet-500/30 shrink-0">
+                <DownloadCloud className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
-              <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white font-['Plus_Jakarta_Sans']">
+              <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white font-['Plus_Jakarta_Sans']">
                 QStream
               </span>
-              <span className="rounded bg-violet-500/10 border border-violet-500/25 px-2 py-0.5 text-[10px] font-bold text-violet-700 dark:text-violet-300">
+              <span className="rounded bg-violet-500/10 border border-violet-500/25 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-violet-700 dark:text-violet-300">
                 Downloader
               </span>
             </div>
@@ -27,7 +27,7 @@ export default function Footer() {
           </div>
 
           {/* Links Column */}
-          <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-3.5 sm:gap-6 text-xs font-semibold text-slate-600 dark:text-slate-400">
             <a
               href="https://qubartech.com"
               target="_blank"
@@ -57,7 +57,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
             <span>© {new Date().getFullYear()}</span>
             <a
@@ -71,7 +71,7 @@ export default function Footer() {
             <span>• All rights reserved.</span>
           </div>
 
-          <p className="text-[11px] text-slate-500 dark:text-slate-500 text-center sm:text-right max-w-md leading-relaxed">
+          <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-500 text-center sm:text-right max-w-md leading-relaxed">
             Legal: QStream Downloader is intended strictly for personal archiving and educational research.
             Users are solely responsible for complying with the Terms of Service of each content provider.
           </p>

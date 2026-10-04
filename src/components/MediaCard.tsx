@@ -335,17 +335,17 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
   const selectedFormatObj = media.formats.find((f) => f.id === selectedFormatId) || media.formats[0];
 
   return (
-    <div className="mx-auto mb-12 w-full max-w-5xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/70 backdrop-blur-xl shadow-xl dark:shadow-2xl overflow-hidden transition-all duration-300">
-      <div className="grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] w-full">
+    <div className="mx-auto mb-10 sm:mb-12 w-full max-w-5xl rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/70 backdrop-blur-xl shadow-xl dark:shadow-2xl overflow-hidden transition-all duration-300">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] w-full">
         {/* Left Column: Preview & Thumbnail */}
-        <div className="relative flex min-h-[260px] flex-col justify-center items-center bg-black overflow-hidden w-full">
+        <div className="relative flex aspect-video md:aspect-auto md:min-h-full min-h-[200px] sm:min-h-[250px] flex-col justify-center items-center bg-black overflow-hidden w-full">
           {isPlayingPreview && previewSource ? (
             <video
               src={previewSource}
               controls
               autoPlay
               playsInline
-              className="h-full w-full max-h-[380px] bg-black"
+              className="h-full w-full max-h-[380px] bg-black object-contain"
             />
           ) : (
             <>
@@ -369,10 +369,10 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                 <button
                   type="button"
                   onClick={() => setIsPlayingPreview(true)}
-                  className="absolute inset-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/70 bg-black/75 text-white shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-black/90 cursor-pointer"
+                  className="absolute inset-auto flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full border-2 border-white/70 bg-black/75 text-white shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-black/90 cursor-pointer"
                   title="Play video preview"
                 >
-                  <Play className="ml-1 h-6 w-6" />
+                  <Play className="ml-1 h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               )}
             </>
@@ -392,12 +392,12 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
         </div>
 
         {/* Right Column: Metadata, Quality Selector and Format list */}
-        <div className="flex min-w-0 w-full flex-col p-5 sm:p-7 overflow-hidden">
+        <div className="flex min-w-0 w-full flex-col p-4 sm:p-6 lg:p-7 overflow-hidden">
           {/* Header & Title */}
           <div className="mb-4 min-w-0 w-full">
             <h2
               className={cn(
-                'text-lg sm:text-xl font-bold leading-snug text-slate-900 dark:text-white break-words',
+                'text-base sm:text-xl font-bold leading-snug text-slate-900 dark:text-white break-words',
                 !isTitleExpanded && 'line-clamp-3'
               )}
               title={media.title}
@@ -415,9 +415,9 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
               </button>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
               {media.uploader && (
-                <div className="flex items-center gap-1.5 truncate max-w-[200px]">
+                <div className="flex items-center gap-1.5 truncate max-w-[180px] sm:max-w-[220px]">
                   <User className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400 shrink-0" />
                   <span className="truncate">{media.uploader}</span>
                 </div>
@@ -434,7 +434,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                   <span>{media.viewCount.toLocaleString()} views</span>
                 </div>
               )}
-              <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+              <div className="flex items-center gap-2.5 shrink-0 sm:ml-auto">
                 <a
                   href={media.url}
                   target="_blank"
@@ -458,41 +458,41 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
 
           {/* Real-Time Download Progress Card */}
           {downloadProgress && activeDownloadFormat && (
-            <div className="mb-5 overflow-hidden rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/70 dark:bg-slate-950/90 dark:bg-gradient-to-br dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-950/80 p-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="mb-5 overflow-hidden rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/70 dark:bg-slate-950/90 dark:bg-gradient-to-br dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-950/80 p-3.5 sm:p-4 shadow-xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 mb-2.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={cn(
-                      'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold shadow-md transition-colors',
+                      'flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl font-bold shadow-md transition-colors',
                       downloadProgress.percent === 100
                         ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-emerald-600/30'
                         : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/40 animate-pulse'
                     )}
                   >
                     {downloadProgress.percent === 100 ? (
-                      <CheckCircle2 className="h-5 w-5" />
+                      <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
                     ) : (
-                      <ArrowDownCircle className="h-5 w-5 animate-bounce" />
+                      <ArrowDownCircle className="h-4 w-4 sm:h-5 sm:w-5 animate-bounce" />
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-                        {downloadProgress.percent === 100 ? 'Download Complete' : 'Downloading Media'}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
+                        {downloadProgress.percent === 100 ? 'Completed' : 'Downloading'}
                       </span>
-                      <span className="rounded bg-emerald-200/80 dark:bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-900 dark:text-emerald-300">
+                      <span className="rounded bg-emerald-200/80 dark:bg-emerald-500/20 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-emerald-900 dark:text-emerald-300 truncate max-w-[150px] sm:max-w-none">
                         {activeDownloadFormat.label}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[240px] sm:max-w-md">
+                    <div className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 truncate max-w-[200px] sm:max-w-md">
                       {media.title}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-emerald-200/60 dark:border-emerald-500/20">
                   {downloadProgress.percent !== null ? (
-                    <span className="font-mono text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">
+                    <span className="font-mono text-lg sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">
                       {downloadProgress.percent}%
                     </span>
                   ) : (
@@ -504,17 +504,17 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     <button
                       type="button"
                       onClick={handleCancelDownload}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/40 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer shadow-sm"
+                      className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/40 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer shadow-sm"
                       title="Cancel download"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </button>
                   )}
                 </div>
               </div>
 
               {/* Progress Bar Track */}
-              <div className="relative h-3.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-900/90 border border-slate-300 dark:border-emerald-500/20 shadow-inner">
+              <div className="relative h-3 sm:h-3.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-900/90 border border-slate-300 dark:border-emerald-500/20 shadow-inner">
                 {downloadProgress.percent !== null ? (
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 shadow-md shadow-emerald-500/50 transition-all duration-200 ease-out relative overflow-hidden"
@@ -528,7 +528,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
               </div>
 
               {/* Progress Stats Footer */}
-              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs font-mono text-slate-600 dark:text-slate-400">
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] sm:text-xs font-mono text-slate-600 dark:text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <span className="font-semibold text-slate-900 dark:text-slate-200">
                     {formatBytes(downloadProgress.receivedBytes)}
@@ -540,7 +540,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 ml-auto">
+                <div className="flex items-center gap-2.5 sm:gap-3 ml-auto">
                   {downloadProgress.speed && downloadProgress.percent !== 100 && (
                     <span className="text-teal-700 dark:text-teal-400 font-semibold">
                       ⚡ {downloadProgress.speed}
@@ -567,7 +567,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
             const isQualityDownloading = downloadingId === selectedFormatObj.id && !isQualitySuccess;
 
             return (
-              <div className="mb-5 rounded-xl border border-violet-200/80 dark:border-white/10 bg-violet-50/80 dark:bg-slate-950/75 p-4 shadow-sm dark:shadow-inner">
+              <div className="mb-5 rounded-xl border border-violet-200/80 dark:border-white/10 bg-violet-50/80 dark:bg-slate-950/75 p-3.5 sm:p-4 shadow-sm dark:shadow-inner">
                 <div className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
                   <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
                   <span>Select Desired Quality:</span>
@@ -576,7 +576,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                   <select
                     value={selectedFormatId}
                     onChange={(e) => setSelectedFormatId(e.target.value)}
-                    className="flex-1 min-w-0 truncate rounded-lg border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer shadow-sm"
+                    className="w-full sm:flex-1 min-w-0 truncate rounded-lg border border-slate-300 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer shadow-sm"
                   >
                     {media.formats.map((fmt) => (
                       <option key={fmt.id} value={fmt.id} className="text-slate-900 dark:text-white bg-white dark:bg-slate-900">
@@ -585,13 +585,13 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     ))}
                   </select>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     <Button
                       variant="success"
                       disabled={isQualityDownloading}
                       onClick={() => handleDownload(selectedFormatObj)}
                       className={cn(
-                        "flex-1 sm:flex-none h-10 px-6 font-bold shadow-md min-w-[160px] transition-all",
+                        "w-full sm:w-auto flex-1 sm:flex-none h-10 px-5 sm:px-6 font-bold shadow-md min-w-0 sm:min-w-[160px] transition-all",
                         isQualitySuccess
                           ? "bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500 text-white shadow-emerald-600/30"
                           : isQualityDownloading
@@ -629,7 +629,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
           {/* All Available Formats List with Filter Tabs */}
           <div className="mt-auto min-w-0 w-full">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 All Available Formats ({media.formats.length})
               </span>
               <div className="flex rounded-lg border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 p-0.5">
@@ -639,7 +639,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                     type="button"
                     onClick={() => setFilterType(type)}
                     className={cn(
-                      'rounded-md px-2.5 py-1 text-xs font-bold capitalize transition-all cursor-pointer',
+                      'rounded-md px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-bold capitalize transition-all cursor-pointer',
                       filterType === type
                         ? 'bg-white dark:bg-white/20 text-slate-900 dark:text-white shadow-sm'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -660,18 +660,18 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                 return (
                   <div
                     key={fmt.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03] p-2.5 transition-colors hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/80 dark:hover:bg-white/[0.07] min-w-0 w-full"
+                    className="flex items-center justify-between gap-2 sm:gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.03] p-2 sm:p-2.5 transition-colors hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/80 dark:hover:bg-white/[0.07] min-w-0 w-full"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <Badge variant={badgeVariant} className="shrink-0 px-2 py-0.5 text-[11px]">
+                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                      <Badge variant={badgeVariant} className="shrink-0 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px]">
                         {fmt.qualityBadge || (fmt.isAudioOnly ? 'MP3' : 'MP4')}
                       </Badge>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        <div className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate">
                           {fmt.label}
                         </div>
                         {fmt.filesizeText && (
-                          <div className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                          <div className="font-mono text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
                             {fmt.filesizeText}
                           </div>
                         )}
@@ -684,7 +684,7 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                       disabled={isDownloading}
                       onClick={() => handleDownload(fmt)}
                       className={cn(
-                        "shrink-0 font-bold min-w-[110px] transition-all",
+                        "shrink-0 font-bold h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm min-w-[85px] sm:min-w-[105px] transition-all",
                         isSuccess && "bg-emerald-600 hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500 text-white shadow-emerald-600/30"
                       )}
                     >
