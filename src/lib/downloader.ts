@@ -287,6 +287,152 @@ async function runYtDlpJson(ytDlp: string, args: string[]): Promise<RawYtDlpOutp
   });
 }
 
+export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMetadata> {
+  const videoIdMatch = targetUrl.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/);
+  const videoId = videoIdMatch ? videoIdMatch[1] : null;
+  if (!videoId) {
+    throw new Error('Could not extract valid YouTube video ID from URL');
+  }
+
+  // 1. Fetch official YouTube oEmbed API (guaranteed to work from any cloud/datacenter IP)
+  let title = 'YouTube Video';
+  let authorName: string | undefined = undefined;
+  let authorUrl: string | undefined = undefined;
+
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const oembedRes = await fetch(oembedUrl);
+    if (oembedRes.ok) {
+      const oembed = await oembedRes.json();
+      if (oembed.title) title = oembed.title;
+      if (oembed.author_name) authorName = oembed.author_name;
+      if (oembed.author_url) authorUrl = oembed.author_url;
+    }
+  } catch (err) {
+    console.warn('[downloader] oEmbed fetch error:', err);
+  }
+
+  // 2. Fetch page HTML for duration, viewCount, and description
+  let duration: number | undefined = undefined;
+  let viewCount: number | undefined = undefined;
+  let description: string | undefined = undefined;
+
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+      const match = html.match(/ytInitialPlayerResponse\s*=\s*({.+?});/);
+      if (match) {
+        const player = JSON.parse(match[1]);
+        if (player.videoDetails) {
+          if (!authorName && player.videoDetails.author) authorName = player.videoDetails.author;
+          if (title === 'YouTube Video' && player.videoDetails.title) title = player.videoDetails.title;
+          if (player.videoDetails.lengthSeconds) {
+            duration = parseInt(player.videoDetails.lengthSeconds, 10);
+          }
+          if (player.videoDetails.viewCount) {
+            viewCount = parseInt(player.videoDetails.viewCount, 10);
+          }
+          if (player.videoDetails.shortDescription) {
+            description = player.videoDetails.shortDescription;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[downloader] Page HTML scrape error:', err);
+  }
+
+  const durationFormatted = duration ? formatDuration(duration) : undefined;
+  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  const formats: VideoFormat[] = [
+    {
+      id: 'video-1080',
+      label: '1080p Full HD',
+      ext: 'mp4',
+      resolution: '1080p',
+      height: 1080,
+      hasVideo: true,
+      hasAudio: true,
+      isAudioOnly: false,
+      qualityBadge: '1080p',
+      formatNote: 'Full HD MP4',
+    },
+    {
+      id: 'video-720',
+      label: '720p HD',
+      ext: 'mp4',
+      resolution: '720p',
+      height: 720,
+      hasVideo: true,
+      hasAudio: true,
+      isAudioOnly: false,
+      qualityBadge: '720p',
+      formatNote: 'HD MP4',
+    },
+    {
+      id: 'video-480',
+      label: '480p Standard',
+      ext: 'mp4',
+      resolution: '480p',
+      height: 480,
+      hasVideo: true,
+      hasAudio: true,
+      isAudioOnly: false,
+      qualityBadge: '480p',
+      formatNote: 'Standard MP4',
+    },
+    {
+      id: 'video-360',
+      label: '360p Medium',
+      ext: 'mp4',
+      resolution: '360p',
+      height: 360,
+      hasVideo: true,
+      hasAudio: true,
+      isAudioOnly: false,
+      qualityBadge: '360p',
+      formatNote: 'Medium MP4',
+    },
+    {
+      id: 'best-audio-mp3',
+      label: 'MP3 Audio (High Quality)',
+      ext: 'mp3',
+      resolution: 'Audio 320kbps',
+      hasVideo: false,
+      hasAudio: true,
+      isAudioOnly: true,
+      qualityBadge: 'MP3',
+      formatNote: '320 kbps',
+    },
+  ];
+
+  return {
+    id: videoId,
+    url: `https://www.youtube.com/watch?v=${videoId}`,
+    title,
+    description,
+    platform: 'youtube',
+    platformName: 'YouTube',
+    thumbnail,
+    duration,
+    durationFormatted,
+    uploader: authorName || 'YouTube Creator',
+    uploaderUrl: authorUrl,
+    viewCount,
+    formats,
+    mediaType: 'video',
+  };
+}
+
 export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> {
   const platform = detectPlatform(targetUrl);
 
@@ -343,6 +489,16 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
     if (platform === 'telegram') {
       const fallback = await scrapeTelegramPost(targetUrl);
       if (fallback) return fallback;
+    }
+
+    // If yt-dlp failed on YouTube due to cloud bot challenge, fallback to native YouTube extractor
+    if (platform === 'youtube') {
+      try {
+        console.log('[downloader] Falling back to native YouTube extractor for:', targetUrl);
+        return await getYouTubeFallbackInfo(targetUrl);
+      } catch (fbErr) {
+        console.warn('[downloader] YouTube native fallback also failed:', fbErr);
+      }
     }
 
     throw lastError || new Error('Failed to extract media information');

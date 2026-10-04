@@ -240,6 +240,16 @@ export async function GET(req: NextRequest) {
     }
 
     const message = err instanceof Error ? err.message : 'Download failed';
+
+    // If it's a YouTube video and server processing was challenged by cloud bot protection, redirect to instant mirror
+    if (targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'))) {
+      const videoIdMatch = targetUrl.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/);
+      const videoId = videoIdMatch ? videoIdMatch[1] : null;
+      if (videoId) {
+        return NextResponse.redirect(`https://www.ssyoutube.com/watch?v=${videoId}`, 302);
+      }
+    }
+
     return NextResponse.json(
       { error: `Download failed: ${message}` },
       { status: 500 }

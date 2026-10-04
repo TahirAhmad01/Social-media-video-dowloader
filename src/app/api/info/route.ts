@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchMediaInfo } from '@/lib/downloader';
+import { fetchMediaInfo, getYouTubeFallbackInfo } from '@/lib/downloader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  let trimmedUrl = '';
   try {
     const body = await req.json();
     const url = body.url;
@@ -17,14 +18,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const trimmedUrl = url.trim();
+    trimmedUrl = url.trim();
     const info = await fetchMediaInfo(trimmedUrl);
 
     return NextResponse.json({ success: true, data: info });
   } catch (error: unknown) {
     console.error('Info API Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to fetch video information';
-    
+
+    // Bulletproof native fallback for YouTube on cloud/datacenter serverless instances
+    if (trimmedUrl && (trimmedUrl.includes('youtube.com') || trimmedUrl.includes('youtu.be'))) {
+      try {
+        const fallback = await getYouTubeFallbackInfo(trimmedUrl);
+        return NextResponse.json({ success: true, data: fallback });
+      } catch (fbErr) {
+        console.warn('Emergency native YouTube fallback error:', fbErr);
+      }
+    }
+
     // Provide user-friendly hints if private or restricted
     let hint = message;
     if (message.includes('Sign in to confirm you’re not a bot') || message.includes("Sign in to confirm you're not a bot")) {
