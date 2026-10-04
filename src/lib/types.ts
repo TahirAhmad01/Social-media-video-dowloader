@@ -45,3 +45,24 @@ export interface DownloadHistoryItem {
   url: string;
   filesizeText?: string;
 }
+
+export interface PersistentTask {
+  id: string;
+  url: string;
+  title: string;
+  formatId: string;
+  formatLabel: string;
+  isAudioOnly: boolean;
+  ext: string;
+  status: 'queued' | 'downloading' | 'processing' | 'ready' | 'failed' | 'cancelled';
+  progressPercent: number | null;
+  receivedBytes: number;
+  totalBytes: number | null;
+  speed: string;
+  error?: string;
+  filename: string;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+

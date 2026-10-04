@@ -10,6 +10,7 @@ import {
   Layers,
   Sparkles,
   Lock,
+  CloudDownload,
 } from 'lucide-react';
 import { YoutubeIcon, InstagramIcon, FacebookIcon, TelegramIcon } from './BrandIcons';
 
@@ -50,6 +51,11 @@ export default function FeaturesGuide() {
   ];
 
   const enterpriseFeatures = [
+    {
+      icon: CloudDownload,
+      title: 'Persistent Background Downloads',
+      desc: 'Downloads execute on the server in the background. If you close your browser or navigate away, your download keeps running until complete.',
+    },
     {
       icon: Cpu,
       title: 'Qubartech Smart Muxer',
