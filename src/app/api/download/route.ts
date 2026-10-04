@@ -63,7 +63,6 @@ export async function GET(req: NextRequest) {
   const formatId = searchParams.get('format_id') || 'best';
   const rawTitle = searchParams.get('title') || 'video';
   const directMediaUrl = searchParams.get('direct_url');
-  const mode = searchParams.get('mode');
 
   if (!targetUrl && !directMediaUrl) {
     return NextResponse.json(
@@ -78,23 +77,6 @@ export async function GET(req: NextRequest) {
   const ext = isAudioOnly ? 'mp3' : 'mp4';
   const filename = `${cleanTitle}.${ext}`;
 
-  // Mode: json (Prepare and verify direct download URL for the client)
-  if (mode === 'json') {
-    if (directMediaUrl && directMediaUrl.startsWith('http')) {
-      return NextResponse.json({ success: true, downloadUrl: directMediaUrl, filename });
-    }
-
-    if (isYouTube) {
-      const cloudUrl = await resolveCloudDownloadUrl(targetUrl!, formatId);
-      if (cloudUrl) {
-        return NextResponse.json({ success: true, downloadUrl: cloudUrl, filename });
-      }
-    }
-
-    // Default to streaming through this API
-    const fallbackDirect = `/api/download?url=${encodeURIComponent(targetUrl || '')}&format_id=${formatId}&title=${encodeURIComponent(rawTitle)}`;
-    return NextResponse.json({ success: true, downloadUrl: fallbackDirect, filename });
-  }
 
   // If a direct URL was provided and it's from a trusted CDN (e.g., Telegram telesco.pe or direct mp4)
   if (directMediaUrl && directMediaUrl.startsWith('http') && !isAudioOnly) {
@@ -122,12 +104,33 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // For YouTube requests, resolve direct binary stream
+  // For YouTube requests, resolve direct binary stream and stream it directly to client
   if (isYouTube) {
     const cloudUrl = await resolveCloudDownloadUrl(targetUrl!, formatId);
     if (cloudUrl) {
-      // 302 redirect directly to the prepared binary stream (which serves Content-Disposition: attachment)
-      return NextResponse.redirect(cloudUrl, 302);
+      try {
+        const upstreamRes = await fetch(cloudUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          },
+        });
+
+        if (upstreamRes.ok && upstreamRes.body) {
+          const headers = new Headers();
+          headers.set('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+          headers.set('Content-Type', isAudioOnly ? 'audio/mpeg' : 'video/mp4');
+          const cl = upstreamRes.headers.get('content-length');
+          if (cl) headers.set('Content-Length', cl);
+          headers.set('Cache-Control', 'no-cache, no-store');
+
+          return new NextResponse(upstreamRes.body as unknown as ReadableStream, {
+            headers,
+          });
+        }
+      } catch (err) {
+        console.warn('[download] Upstream stream piping failed, falling back to yt-dlp:', err);
+      }
     }
   }
 

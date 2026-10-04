@@ -88,24 +88,26 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
       if (format.url) {
         params.set('direct_url', format.url);
       }
-      params.set('mode', 'json');
-
+      // Fetch media directly from our in-house /api/download stream
       const res = await fetch(`/api/download?${params.toString()}`);
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.downloadUrl) {
-        throw new Error(data.error || 'Failed to prepare download stream.');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Download failed (HTTP ${res.status})`);
       }
 
-      setDownloadStatus('Starting download...');
+      setDownloadStatus('Saving file...');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
 
       const a = document.createElement('a');
-      a.href = data.downloadUrl;
+      a.href = blobUrl;
       const cleanTitle = media.title.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 80) || 'video';
-      a.download = data.filename || `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
+      a.download = `${cleanTitle}.${format.ext || (format.isAudioOnly ? 'mp3' : 'mp4')}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 20000);
 
       if (onRecordDownload) {
         onRecordDownload({
