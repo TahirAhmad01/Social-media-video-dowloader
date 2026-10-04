@@ -142,21 +142,21 @@ export default function Home() {
           {/* Company & Product Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-gradient-to-r from-violet-600/10 via-indigo-600/10 to-pink-600/10 dark:from-violet-600/15 dark:via-indigo-600/15 dark:to-pink-600/15 px-4 py-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-md shadow-violet-500/5 dark:shadow-violet-500/10 mb-6">
             <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-            <span>QubarStream by Qubartech</span>
+            <span>QStream Downloader</span>
             <span className="text-slate-400 dark:text-white/30">•</span>
-            <span className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">Lossless 4K & MP3 Suite</span>
+            <span className="text-slate-600 dark:text-slate-300 font-mono text-[11px]">8K, 4K & MP3 Suite</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white mb-5 leading-[1.15] font-['Plus_Jakarta_Sans']">
             Download Any Video in <br />
             <span className="bg-gradient-to-r from-violet-600 via-pink-600 to-sky-600 dark:from-violet-400 dark:via-pink-400 dark:to-sky-400 bg-clip-text text-transparent">
-              Stunning 4K & Lossless Audio
+              Stunning 8K, 4K & Lossless Audio
             </span>
           </h1>
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-            Engineered by <strong className="text-slate-900 dark:text-white font-semibold">Qubartech</strong>.{' '}
-            Extract original quality video and audio from <strong className="text-red-600 dark:text-red-400">YouTube (4K, Shorts)</strong>,{' '}
+            High-speed media extraction engine.{' '}
+            Extract original quality video and audio from <strong className="text-red-600 dark:text-red-400">YouTube (8K, 4K, Shorts)</strong>,{' '}
             <strong className="text-pink-600 dark:text-pink-400">Instagram (Reels)</strong>,{' '}
             <strong className="text-blue-600 dark:text-blue-400">Facebook (Watch)</strong>, and{' '}
             <strong className="text-sky-600 dark:text-sky-400">Telegram</strong> with zero compression loss.
@@ -309,7 +309,7 @@ export default function Home() {
               Analyzing Media Manifest...
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              QubarStream engine is parsing DASH video streams, audio bitrates, and resolving 4K/HD formats.
+              QStream engine is parsing video streams, audio bitrates, and resolving 8K/4K/HD formats.
             </p>
           </div>
         )}

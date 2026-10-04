@@ -3,21 +3,27 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
-  title: 'QubarStream - Universal HD & 4K Media Downloader | by Qubartech',
+  title: 'QStream Downloader - Universal 8K, 4K & HD Video Downloader',
   description:
-    'Enterprise-grade video and audio extraction engine by Qubartech. Seamlessly save 4K, 1080p, and MP3 media from YouTube, Instagram, Facebook, and Telegram with zero latency.',
+    'High-speed 8K, 4K, 1080p video and audio downloader for YouTube, Instagram, Facebook, and Telegram with real-time stream processing.',
   keywords: [
-    'Qubartech',
-    'QubarStream',
+    'QStream',
+    'QStream Downloader',
     'video downloader',
     'youtube 4k downloader',
+    'youtube 8k downloader',
     'instagram reels downloader',
     'facebook video download',
     'telegram media download',
     'mp4 converter',
     'mp3 extraction',
   ],
-  authors: [{ name: 'Qubartech', url: 'https://qubartech.com' }],
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
+  authors: [{ name: 'QStream', url: 'https://qubartech.com' }],
 };
 
 export default function RootLayout({
@@ -29,6 +35,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

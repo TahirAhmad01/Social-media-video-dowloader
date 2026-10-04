@@ -77,8 +77,9 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
   const getFormatBadgeVariant = (badgeText?: string, isAudio?: boolean) => {
     if (isAudio) return 'audio';
     if (!badgeText) return 'default';
+    if (badgeText.includes('8K')) return 'uhd';
     if (badgeText.includes('4K')) return 'uhd';
-    if (badgeText.includes('2K')) return 'qhd';
+    if (badgeText.includes('2K') || badgeText.includes('1440')) return 'qhd';
     if (badgeText.includes('1080')) return 'fhd';
     if (badgeText.includes('720')) return 'hd';
     return 'default';
@@ -170,14 +171,20 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
           const dur = media.duration;
           if (format.isAudioOnly) {
             totalBytes = Math.round(dur * 24 * 1024);
+          } else if (format.height && format.height >= 4320) {
+            totalBytes = Math.round(dur * 2000 * 1024);
+          } else if (format.height && format.height >= 2160) {
+            totalBytes = Math.round(dur * 900 * 1024);
+          } else if (format.height && format.height >= 1440) {
+            totalBytes = Math.round(dur * 450 * 1024);
           } else if (format.height && format.height >= 1080) {
-            totalBytes = Math.round(dur * 420 * 1024);
+            totalBytes = Math.round(dur * 280 * 1024);
           } else if (format.height && format.height >= 720) {
-            totalBytes = Math.round(dur * 250 * 1024);
+            totalBytes = Math.round(dur * 180 * 1024);
           } else if (format.height && format.height >= 480) {
-            totalBytes = Math.round(dur * 140 * 1024);
+            totalBytes = Math.round(dur * 100 * 1024);
           } else {
-            totalBytes = Math.round(dur * 90 * 1024);
+            totalBytes = Math.round(dur * 60 * 1024);
           }
         }
       }

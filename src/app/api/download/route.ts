@@ -20,7 +20,18 @@ function sanitizeFilename(name: string): string {
 async function resolveCloudDownloadUrl(targetUrl: string, formatId: string): Promise<string | null> {
   try {
     const isAudioOnly = formatId === 'best-audio-mp3' || formatId === 'audio';
-    const resolution = isAudioOnly ? 'mp3' : (formatId.replace('video-', '') || '1080');
+    let resolution = '1080';
+    if (isAudioOnly) {
+      resolution = 'mp3';
+    } else if (formatId === 'video-4320' || formatId === 'video-8k' || formatId === '8k') {
+      resolution = '8k';
+    } else if (formatId === 'video-2160' || formatId === 'video-4k' || formatId === '4k') {
+      resolution = '4k';
+    } else if (formatId === 'video-1440' || formatId === '1440') {
+      resolution = '1440';
+    } else {
+      resolution = formatId.replace('video-', '') || '1080';
+    }
 
     const res = await fetch(
       `https://p.savenow.to/ajax/download.php?copyright=0&format=${resolution}&url=${encodeURIComponent(targetUrl)}&api=dfcb6d76f2f6a9894gjkege8a4ab88b398`,
@@ -173,7 +184,8 @@ export async function GET(req: NextRequest) {
       targetUrl!
     );
   } else if (formatId.startsWith('video-')) {
-    const height = formatId.replace('video-', '');
+    const raw = formatId.replace('video-', '');
+    const height = raw === '8k' ? '4320' : raw === '4k' ? '2160' : raw;
     downloadArgs.push(
       '-f',
       `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`,

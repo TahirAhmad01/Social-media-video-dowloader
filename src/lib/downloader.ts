@@ -316,6 +316,8 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
   let viewCount: number | undefined = undefined;
   let description: string | undefined = undefined;
 
+  let rawAdaptiveFormats: Array<{ height?: number; contentLength?: string; mimeType?: string }> = [];
+
   try {
     const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: {
@@ -343,65 +345,87 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
             description = player.videoDetails.shortDescription;
           }
         }
+
+        if (Array.isArray(player.streamingData?.adaptiveFormats)) {
+          rawAdaptiveFormats = player.streamingData.adaptiveFormats;
+        }
       }
     }
   } catch (err) {
     console.warn('[downloader] Page HTML scrape error:', err);
   }
 
-  const durationFormatted = duration ? formatDuration(duration) : undefined;
-  const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    // Extract available video heights and content lengths
+    let availableHeights: number[] = [];
+    const sizeMap = new Map<number, number>();
 
-  const formats: VideoFormat[] = [
-    {
-      id: 'video-1080',
-      label: '1080p Full HD',
-      ext: 'mp4',
-      resolution: '1080p',
-      height: 1080,
-      hasVideo: true,
-      hasAudio: true,
-      isAudioOnly: false,
-      qualityBadge: '1080p',
-      formatNote: 'Full HD MP4',
-    },
-    {
-      id: 'video-720',
-      label: '720p HD',
-      ext: 'mp4',
-      resolution: '720p',
-      height: 720,
-      hasVideo: true,
-      hasAudio: true,
-      isAudioOnly: false,
-      qualityBadge: '720p',
-      formatNote: 'HD MP4',
-    },
-    {
-      id: 'video-480',
-      label: '480p Standard',
-      ext: 'mp4',
-      resolution: '480p',
-      height: 480,
-      hasVideo: true,
-      hasAudio: true,
-      isAudioOnly: false,
-      qualityBadge: '480p',
-      formatNote: 'Standard MP4',
-    },
-    {
-      id: 'video-360',
-      label: '360p Medium',
-      ext: 'mp4',
-      resolution: '360p',
-      height: 360,
-      hasVideo: true,
-      hasAudio: true,
-      isAudioOnly: false,
-      qualityBadge: '360p',
-      formatNote: 'Medium MP4',
-    },
-    {
+    for (const af of rawAdaptiveFormats) {
+      if (af.height && typeof af.height === 'number') {
+        availableHeights.push(af.height);
+        if (af.contentLength) {
+          const sz = parseInt(af.contentLength, 10);
+          if (sz && (!sizeMap.has(af.height) || sz > (sizeMap.get(af.height) || 0))) {
+            sizeMap.set(af.height, sz);
+          }
+        }
+      }
+    }
+
+    availableHeights = [...new Set(availableHeights)].sort((a, b) => b - a);
+
+    // If YouTube HTML was scraped without player data or blocked, check title and ensure 4K/2K are offered
+    if (availableHeights.length === 0) {
+      const titleUpper = title.toUpperCase();
+      if (titleUpper.includes('8K') || titleUpper.includes('4320')) {
+        availableHeights = [4320, 2160, 1440, 1080, 720, 480, 360];
+      } else if (titleUpper.includes('4K') || titleUpper.includes('2160') || titleUpper.includes('UHD')) {
+        availableHeights = [2160, 1440, 1080, 720, 480, 360];
+      } else {
+        // Standard set including 4K and 2K
+        availableHeights = [2160, 1440, 1080, 720, 480, 360];
+      }
+    }
+
+    const resolutionConfig: Record<number, { id: string; label: string; badge: string; note: string }> = {
+      4320: { id: 'video-8k', label: '8K Ultra HD (4320p)', badge: '8K UHD', note: '8K Ultra HD MP4' },
+      2160: { id: 'video-4k', label: '4K Ultra HD (2160p)', badge: '4K UHD', note: '4K Ultra HD MP4' },
+      1440: { id: 'video-1440', label: '2K Quad HD (1440p)', badge: '2K QHD', note: '2K Quad HD MP4' },
+      1080: { id: 'video-1080', label: '1080p Full HD', badge: '1080p', note: 'Full HD MP4' },
+      720: { id: 'video-720', label: '720p HD', badge: '720p', note: 'HD MP4' },
+      480: { id: 'video-480', label: '480p Standard', badge: '480p', note: 'Standard MP4' },
+      360: { id: 'video-360', label: '360p Medium', badge: '360p', note: 'Medium MP4' },
+      240: { id: 'video-240', label: '240p Compact', badge: '240p', note: 'Compact MP4' },
+      144: { id: 'video-144', label: '144p Mobile', badge: '144p', note: 'Mobile MP4' },
+    };
+
+    const durationFormatted = duration ? formatDuration(duration) : undefined;
+    const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+    const formats: VideoFormat[] = [];
+
+    for (const h of availableHeights) {
+      const cfg = resolutionConfig[h];
+      if (cfg) {
+        const size = sizeMap.get(h);
+        formats.push({
+          id: cfg.id,
+          label: cfg.label,
+          ext: 'mp4',
+          resolution: `${h}p`,
+          height: h,
+          filesize: size,
+          filesizeText: size ? formatBytes(size) : undefined,
+          hasVideo: true,
+          hasAudio: true,
+          isAudioOnly: false,
+          qualityBadge: cfg.badge,
+          formatNote: cfg.note,
+        });
+      }
+    }
+
+    // Audio format
+    formats.push({
       id: 'best-audio-mp3',
       label: 'MP3 Audio (High Quality)',
       ext: 'mp3',
@@ -410,9 +434,8 @@ export async function getYouTubeFallbackInfo(targetUrl: string): Promise<MediaMe
       hasAudio: true,
       isAudioOnly: true,
       qualityBadge: 'MP3',
-      formatNote: '320 kbps',
-    },
-  ];
+      formatNote: '320 kbps High Quality Audio',
+    });
 
   return {
     id: videoId,
@@ -541,8 +564,9 @@ function processRawMetadata(
     });
   }
 
-  // 2. Video resolutions: 4K UHD (2160p), 2K QHD (1440p), 1080p, 720p, 480p, 360p, 240p, 144p
+  // 2. Video resolutions: 8K UHD (4320p), 4K UHD (2160p), 2K QHD (1440p), 1080p, 720p, 480p, 360p, 240p, 144p
   const resolutionTargets = [
+    { label: '8K Ultra HD (4320p)', height: 4320, badge: '8K UHD' },
     { label: '4K Ultra HD (2160p)', height: 2160, badge: '4K UHD' },
     { label: '2K Quad HD (1440p)', height: 1440, badge: '2K QHD' },
     { label: '1080p Full HD', height: 1080, badge: '1080p' },

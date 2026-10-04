@@ -23,16 +23,15 @@ export default function Header() {
           <div>
             <div className="flex items-center gap-2">
               <span className="bg-gradient-to-r from-slate-900 via-slate-700 to-violet-600 dark:from-white dark:via-slate-100 dark:to-violet-300 bg-clip-text text-xl font-black tracking-tight text-transparent font-['Plus_Jakarta_Sans']">
-                QubarStream
+                QStream
               </span>
               <span className="rounded bg-violet-500/10 border border-violet-500/30 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                PRO
+                Downloader
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              <span>by</span>
-              <span className="text-violet-600 dark:text-violet-400 font-bold tracking-wide hover:underline cursor-pointer">
-                qubartech
+              <span className="text-violet-600 dark:text-violet-400 font-bold tracking-wide">
+                8K & 4K Ultra HD
               </span>
               <span>•</span>
               <span className="text-slate-400 dark:text-slate-500">Cloud Media Engine</span>
@@ -59,7 +58,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="hidden sm:flex items-center gap-2 py-1.5 px-3 text-xs border-slate-200 bg-slate-100/90 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span className="font-mono text-[11px]">Qubar Engine v2.4</span>
+              <span className="font-mono text-[11px]">QStream Engine v2.5</span>
             </Badge>
 
             <a

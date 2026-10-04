@@ -119,7 +119,7 @@ export default function FeaturesGuide() {
               Technology Stack
             </span>
             <h4 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
-              Why Professionals Choose QubarStream by Qubartech
+              Why Creators Choose QStream Downloader
             </h4>
           </div>
           <span className="text-xs font-mono text-slate-500 dark:text-slate-400">

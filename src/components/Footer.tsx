@@ -15,15 +15,14 @@ export default function Footer() {
                 <DownloadCloud className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white font-['Plus_Jakarta_Sans']">
-                QubarStream
+                QStream
               </span>
               <span className="rounded bg-violet-500/10 border border-violet-500/25 px-2 py-0.5 text-[10px] font-bold text-violet-700 dark:text-violet-300">
-                by qubartech
+                Downloader
               </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md leading-relaxed">
-              Professional media extraction and stream processing suite engineered by{' '}
-              <strong className="text-violet-700 dark:text-violet-300 font-semibold">Qubartech</strong>. Designed for creators, researchers, and enterprises worldwide.
+              Professional media extraction and stream processing suite for 8K, 4K, and MP3 media.
             </p>
           </div>
 
@@ -73,7 +72,7 @@ export default function Footer() {
           </div>
 
           <p className="text-[11px] text-slate-500 dark:text-slate-500 text-center sm:text-right max-w-md leading-relaxed">
-            Legal: QubarStream is intended strictly for personal archiving and educational research.
+            Legal: QStream Downloader is intended strictly for personal archiving and educational research.
             Users are solely responsible for complying with the Terms of Service of each content provider.
           </p>
         </div>
