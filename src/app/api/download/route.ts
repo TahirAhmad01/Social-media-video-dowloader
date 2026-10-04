@@ -118,32 +118,63 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(ytDlp, downloadArgs);
-      let errorOut = '';
+    const executeDownload = (args: string[]) =>
+      new Promise<void>((resolve, reject) => {
+        const proc = spawn(ytDlp, args);
+        let errorOut = '';
 
-      proc.stderr.on('data', (d) => {
-        errorOut += d.toString();
-      });
+        proc.stderr.on('data', (d) => {
+          errorOut += d.toString();
+        });
 
-      proc.on('close', (code) => {
-        if (code === 0 && fs.existsSync(tempFilePath)) {
-          resolve();
-        } else {
-          // Check if file exists with slightly different ext (e.g. mkv or webm)
-          const possibleFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith(tempId));
-          if (possibleFiles.length > 0) {
+        proc.on('close', (code) => {
+          if (code === 0 && fs.existsSync(tempFilePath)) {
             resolve();
           } else {
-            reject(new Error(errorOut || `yt-dlp exited with code ${code}`));
+            // Check if file exists with slightly different ext (e.g. mkv or webm)
+            const possibleFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith(tempId));
+            if (possibleFiles.length > 0) {
+              resolve();
+            } else {
+              reject(new Error(errorOut || `yt-dlp exited with code ${code}`));
+            }
           }
-        }
+        });
+
+        proc.on('error', (err) => {
+          reject(err);
+        });
       });
 
-      proc.on('error', (err) => {
-        reject(err);
-      });
-    });
+    try {
+      await executeDownload(downloadArgs);
+    } catch (firstErr) {
+      console.warn('[download] Primary download attempt failed, trying fallback client:', firstErr);
+      try {
+        const fallbackArgs = [
+          ...downloadArgs.filter((a, idx, arr) => a !== '--extractor-args' && arr[idx - 1] !== '--extractor-args'),
+          '--extractor-args',
+          'youtube:player_client=ios_creator,visionos',
+        ];
+        await executeDownload(fallbackArgs);
+      } catch (secondErr) {
+        console.warn('[download] Second download attempt failed, trying progressive stream:', secondErr);
+        const lastResortArgs = [
+          ...downloadArgs.filter(
+            (a, idx, arr) =>
+              a !== '--extractor-args' &&
+              arr[idx - 1] !== '--extractor-args' &&
+              a !== '-f' &&
+              arr[idx - 1] !== '-f'
+          ),
+          '--extractor-args',
+          'youtube:player_client=android_vr',
+          '-f',
+          isAudioOnly ? 'ba/b' : 'b/18/best',
+        ];
+        await executeDownload(lastResortArgs);
+      }
+    }
 
     // Locate the actual output file (in case yt-dlp appended an extension)
     let actualFilePath = tempFilePath;

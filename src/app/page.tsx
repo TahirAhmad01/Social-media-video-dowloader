@@ -19,6 +19,7 @@ import {
   Zap,
   Gauge,
   Film,
+  ExternalLink,
 } from 'lucide-react';
 import { SupportedPlatform, MediaMetadata, DownloadHistoryItem } from '@/lib/types';
 import { detectPlatform, getPlatformMeta } from '@/lib/url-detector';
@@ -286,48 +287,33 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Error Notification */}
+        {/* Error Notification with Instant Alternative Resolver */}
         {error && (
           <div className="mx-auto mb-8 max-w-3xl rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-300 shadow-lg shadow-red-500/5">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-red-500 dark:text-red-400" />
-              <div>
-                <strong className="font-semibold">Extraction Notice:</strong> {error}
+              <div className="flex-1">
+                <div>
+                  <strong className="font-semibold">Notice:</strong> {error}
+                </div>
+                {detectedPlatform === 'youtube' && url.trim() && (
+                  <div className="mt-3 pt-3 border-t border-red-500/20 flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                      Guaranteed Instant Alternative (Zero setup / No cookies needed):
+                    </span>
+                    <a
+                      href={`https://www.ssyoutube.com/watch?v=${(url.match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/|\/v\/|\/e\/|watch\?.*v=)([^#&?]*)/)?.[1] || '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs font-bold transition-colors shadow-sm"
+                    >
+                      <span>Open Instant Web Mirror</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
-
-            {(error.includes('bot verification') || error.includes('YOUTUBE_COOKIES')) && (
-              <div className="mt-4 pt-3 border-t border-red-500/20 text-xs text-slate-700 dark:text-slate-300">
-                <p className="font-semibold text-slate-900 dark:text-white mb-2">
-                  💡 How to resolve YouTube verification on cloud hosting (Vercel):
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-300">
-                  <li>
-                    Install the browser extension{' '}
-                    <strong className="text-slate-800 dark:text-slate-100">&quot;Get cookies.txt LOCALLY&quot;</strong> on Chrome/Firefox.
-                  </li>
-                  <li>
-                    Open <strong className="text-slate-800 dark:text-slate-100">youtube.com</strong>, click the extension icon, and copy your cookies.
-                  </li>
-                  <li>
-                    Go to your <strong className="text-slate-800 dark:text-slate-100">Vercel Dashboard &rarr; Settings &rarr; Environment Variables</strong>.
-                  </li>
-                  <li>
-                    Add variable <code className="bg-black/10 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-violet-700 dark:text-violet-300 font-semibold">YOUTUBE_COOKIES</code> and paste the copied cookies text.
-                  </li>
-                </ol>
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="text-slate-500 dark:text-slate-400">Or test non-YouTube links (no cookies needed):</span>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSample('https://t.me/durov/532')}
-                    className="underline text-sky-600 dark:text-sky-400 hover:text-sky-700 font-medium"
-                  >
-                    Telegram Video Post
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

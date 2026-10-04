@@ -236,15 +236,29 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                   <span>{media.viewCount.toLocaleString()} views</span>
                 </div>
               )}
-              <a
-                href={media.url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 shrink-0 ml-auto font-medium"
-              >
-                <span>Original Link</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
+              <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                {media.platform === 'youtube' && (
+                  <a
+                    href={`https://www.ssyoutube.com/watch?v=${media.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 bg-red-500/10 hover:bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-md transition-colors"
+                    title="Direct web mirror (no cookies required)"
+                  >
+                    <span>Instant Mirror</span>
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                )}
+                <a
+                  href={media.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium text-xs"
+                >
+                  <span>Original Link</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
             </div>
           </div>
 
@@ -268,29 +282,44 @@ export default function MediaCard({ media, onRecordDownload }: MediaCardProps) {
                   ))}
                 </select>
 
-                <Button
-                  variant="success"
-                  disabled={downloadingId === selectedFormatObj.id}
-                  onClick={() => handleDownload(selectedFormatObj)}
-                  className="shrink-0 h-10 px-5 font-bold shadow-md shadow-emerald-600/25"
-                >
-                  {downloadingId === selectedFormatObj.id ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Downloading...</span>
-                    </>
-                  ) : downloadSuccessId === selectedFormatObj.id ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-white" />
-                      <span>Downloaded!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      <span>Download Now</span>
-                    </>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="success"
+                    disabled={downloadingId === selectedFormatObj.id}
+                    onClick={() => handleDownload(selectedFormatObj)}
+                    className="flex-1 sm:flex-none h-10 px-5 font-bold shadow-md shadow-emerald-600/25"
+                  >
+                    {downloadingId === selectedFormatObj.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Downloading...</span>
+                      </>
+                    ) : downloadSuccessId === selectedFormatObj.id ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-white" />
+                        <span>Downloaded!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        <span>Download Now</span>
+                      </>
+                    )}
+                  </Button>
+
+                  {media.platform === 'youtube' && (
+                    <a
+                      href={`https://www.ssyoutube.com/watch?v=${media.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 text-xs font-bold transition-all shadow-sm whitespace-nowrap"
+                      title="Direct web mirror without server processing"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>Instant Mirror</span>
+                    </a>
                   )}
-                </Button>
+                </div>
               </div>
             </div>
           )}

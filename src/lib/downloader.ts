@@ -20,6 +20,11 @@ export function getFfmpegPath(): string | null {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ffmpegStatic = require('ffmpeg-static');
     if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
+      try {
+        fs.chmodSync(ffmpegStatic, 0o755);
+      } catch {
+        // ignore
+      }
       cachedFfmpegPath = ffmpegStatic;
       return ffmpegStatic;
     }
@@ -30,6 +35,11 @@ export function getFfmpegPath(): string | null {
   // 2. Check local node_modules
   const localModuleFfmpeg = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
   if (fs.existsSync(localModuleFfmpeg)) {
+    try {
+      fs.chmodSync(localModuleFfmpeg, 0o755);
+    } catch {
+      // ignore
+    }
     cachedFfmpegPath = localModuleFfmpeg;
     return localModuleFfmpeg;
   }
@@ -174,7 +184,7 @@ export function getYtDlpBaseArgs(): string[] {
     '--user-agent',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     '--extractor-args',
-    'youtube:player_client=android,ios,mweb',
+    'youtube:player_client=visionos,ios_creator,android_vr',
   ];
 
   if (process.env.YOUTUBE_PO_TOKEN) {
@@ -294,26 +304,37 @@ export async function fetchMediaInfo(targetUrl: string): Promise<MediaMetadata> 
   let rawOutput: RawYtDlpOutput | null = null;
   let lastError: Error | null = null;
 
-  try {
-    rawOutput = await runYtDlpJson(ytDlp, [...baseArgs, '-J', targetUrl]);
-  } catch (err) {
-    lastError = err instanceof Error ? err : new Error(String(err));
+  if (platform === 'youtube') {
+    // Robust multi-client fallback pipeline that avoids bot checks without needing cookies
+    const clientStrategies = [
+      ['--extractor-args', 'youtube:player_client=visionos,ios_creator,android_vr'],
+      ['--extractor-args', 'youtube:player_client=ios_creator,visionos'],
+      ['--extractor-args', 'youtube:player_client=android_vr'],
+      [], // Default client
+    ];
 
-    // If YouTube triggered bot verification with android/ios/mweb, retry with TV client
-    if (platform === 'youtube' && (lastError.message.includes('bot') || lastError.message.includes('Sign in'))) {
+    const baseWithoutExtractor = baseArgs.filter(
+      (a, idx, arr) => a !== '--extractor-args' && arr[idx - 1] !== '--extractor-args'
+    );
+
+    for (const strat of clientStrategies) {
       try {
-        const tvArgs = [
-          ...baseArgs.filter((a, idx, arr) => a !== '--extractor-args' && arr[idx - 1] !== '--extractor-args'),
-          '--extractor-args',
-          'youtube:player_client=tv',
-          '-J',
-          targetUrl,
-        ];
-        rawOutput = await runYtDlpJson(ytDlp, tvArgs);
-      } catch (retryErr) {
-        // Fall back to original error
-        lastError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+        const attemptArgs = [...baseWithoutExtractor, ...strat, '-J', targetUrl];
+        rawOutput = await runYtDlpJson(ytDlp, attemptArgs);
+        if (rawOutput && rawOutput.title) {
+          lastError = null;
+          break;
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.warn(`[downloader] YouTube strategy ${strat.join(' ') || 'default'} failed:`, lastError.message);
       }
+    }
+  } else {
+    try {
+      rawOutput = await runYtDlpJson(ytDlp, [...baseArgs, '-J', targetUrl]);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
     }
   }
 

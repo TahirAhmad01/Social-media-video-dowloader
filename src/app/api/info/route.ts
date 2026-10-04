@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
     // Provide user-friendly hints if private or restricted
     let hint = message;
     if (message.includes('Sign in to confirm you’re not a bot') || message.includes("Sign in to confirm you're not a bot")) {
-      hint = 'YouTube requires bot verification on cloud server IPs. You can provide YouTube cookies via environment variable (YOUTUBE_COOKIES) or try Instagram, Facebook, and Telegram links.';
+      hint = 'YouTube security challenged this cloud request. You can try again or use the Instant Mirror button below.';
     } else if (message.includes('Private video') || message.includes('Sign in')) {
       hint = 'This video appears to be private or requires user login.';
     } else if (message.includes('404') || message.includes('not found')) {
       hint = 'Video not found. Please verify the URL is correct and publicly accessible.';
     } else if (message.includes('bot') || message.includes('HTTP Error 429')) {
-      hint = 'Platform temporarily limited cloud requests. Please try again or test with another link.';
+      hint = 'Platform temporarily rate-limited. Please retry in a few moments or use the Instant Mirror.';
     }
 
     return NextResponse.json(
